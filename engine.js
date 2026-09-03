@@ -419,14 +419,330 @@
     this.running = false;
   };
 
+  // ── 3D Linear Algebra Math Core ──────────────────────────────────────────
+
+  function Vector3D(x, y, z) {
+    this.x = typeof x === 'number' && !isNaN(x) ? x : 0;
+    this.y = typeof y === 'number' && !isNaN(y) ? y : 0;
+    this.z = typeof z === 'number' && !isNaN(z) ? z : 0;
+  }
+
+  Vector3D.prototype.clone = function () {
+    return new Vector3D(this.x, this.y, this.z);
+  };
+
+  Vector3D.prototype.add = function (v) {
+    return new Vector3D(this.x + v.x, this.y + v.y, this.z + v.z);
+  };
+
+  Vector3D.prototype.sub = function (v) {
+    return new Vector3D(this.x - v.x, this.y - v.y, this.z - v.z);
+  };
+
+  Vector3D.prototype.scale = function (s) {
+    return new Vector3D(this.x * s, this.y * s, this.z * s);
+  };
+
+  Vector3D.prototype.dot = function (v) {
+    return this.x * v.x + this.y * v.y + this.z * v.z;
+  };
+
+  Vector3D.prototype.cross = function (v) {
+    return new Vector3D(
+      this.y * v.z - this.z * v.y,
+      this.z * v.x - this.x * v.z,
+      this.x * v.y - this.y * v.x
+    );
+  };
+
+  Vector3D.prototype.magnitude = function () {
+    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+  };
+
+  Vector3D.prototype.normalize = function () {
+    var mag = this.magnitude();
+    if (mag < EPSILON) return new Vector3D(0, 0, 0);
+    return new Vector3D(this.x / mag, this.y / mag, this.z / mag);
+  };
+
+  // 3x3 Matrix Class (Row-major)
+  // [ m00, m01, m02 ]
+  // [ m10, m11, m12 ]
+  // [ m20, m21, m22 ]
+  function Matrix3x3(arr) {
+    if (Array.isArray(arr) && arr.length >= 9) {
+      this.m = arr.slice(0, 9);
+    } else {
+      this.m = [
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1
+      ];
+    }
+  }
+
+  Matrix3x3.prototype.clone = function () {
+    return new Matrix3x3(this.m.slice());
+  };
+
+  Matrix3x3.identity = function () {
+    return new Matrix3x3([
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1
+    ]);
+  };
+
+  Matrix3x3.prototype.apply = function (v) {
+    var m = this.m;
+    return new Vector3D(
+      m[0] * v.x + m[1] * v.y + m[2] * v.z,
+      m[3] * v.x + m[4] * v.y + m[5] * v.z,
+      m[6] * v.x + m[7] * v.y + m[8] * v.z
+    );
+  };
+
+  Matrix3x3.prototype.multiply = function (other) {
+    var a = this.m;
+    var b = other.m;
+    var out = new Array(9);
+    for (var r = 0; r < 3; r++) {
+      for (var c = 0; c < 3; c++) {
+        out[r * 3 + c] =
+          a[r * 3 + 0] * b[0 * 3 + c] +
+          a[r * 3 + 1] * b[1 * 3 + c] +
+          a[r * 3 + 2] * b[2 * 3 + c];
+      }
+    }
+    return new Matrix3x3(out);
+  };
+
+  Matrix3x3.prototype.determinant = function () {
+    var m = this.m;
+    return (
+      m[0] * (m[4] * m[8] - m[5] * m[7]) -
+      m[1] * (m[3] * m[8] - m[5] * m[6]) +
+      m[2] * (m[3] * m[7] - m[4] * m[6])
+    );
+  };
+
+  Matrix3x3.rotationX = function (rad) {
+    var c = Math.cos(rad), s = Math.sin(rad);
+    return new Matrix3x3([
+      1, 0,  0,
+      0, c, -s,
+      0, s,  c
+    ]);
+  };
+
+  Matrix3x3.rotationY = function (rad) {
+    var c = Math.cos(rad), s = Math.sin(rad);
+    return new Matrix3x3([
+       c, 0, s,
+       0, 1, 0,
+      -s, 0, c
+    ]);
+  };
+
+  Matrix3x3.rotationZ = function (rad) {
+    var c = Math.cos(rad), s = Math.sin(rad);
+    return new Matrix3x3([
+      c, -s, 0,
+      s,  c, 0,
+      0,  0, 1
+    ]);
+  };
+
+  // 3D Camera Projection (Isometric & Weak Perspective)
+  function project3DTo2D(v3, cameraPitch, cameraYaw, fovScale) {
+    var cosP = Math.cos(cameraPitch), sinP = Math.sin(cameraPitch);
+    var cosY = Math.cos(cameraYaw), sinY = Math.sin(cameraYaw);
+
+    // Yaw around Y
+    var x1 = v3.x * cosY + v3.z * sinY;
+    var y1 = v3.y;
+    var z1 = -v3.x * sinY + v3.z * cosY;
+
+    // Pitch around X
+    var x2 = x1;
+    var y2 = y1 * cosP - z1 * sinP;
+    var z2 = y1 * sinP + z1 * cosP;
+
+    // Perspective depth
+    var distance = 5.0;
+    var factor = fovScale / (distance + z2 * 0.4);
+
+    return {
+      x: x2 * factor,
+      y: y2 * factor,
+      depth: z2
+    };
+  }
+
+  // ── LossLab Optimization Engine ───────────────────────────────────────────
+
+  var LossFunctions = {
+    bowl: {
+      name: 'Convex Quadratic Bowl',
+      evaluate: function (x, y) { return 0.5 * (x * x + 2 * y * y); },
+      gradient: function (x, y) { return { dx: x, dy: 2 * y }; },
+      domain: 3.0
+    },
+    saddle: {
+      name: 'Saddle Point (Hyperbolic Paraboloid)',
+      evaluate: function (x, y) { return 0.5 * (x * x - y * y); },
+      gradient: function (x, y) { return { dx: x, dy: -y }; },
+      domain: 2.5
+    },
+    rosenbrock: {
+      name: "Rosenbrock's Banana Valley",
+      evaluate: function (x, y) { return Math.pow(1 - x, 2) + 10 * Math.pow(y - x * x, 2); },
+      gradient: function (x, y) {
+        return {
+          dx: -2 * (1 - x) - 40 * x * (y - x * x),
+          dy: 20 * (y - x * x)
+        };
+      },
+      domain: 2.0
+    }
+  };
+
+  function OptimizerParticle(type, startX, startY, color) {
+    this.type = type; // 'sgd' | 'momentum' | 'rmsprop' | 'adam'
+    this.x = startX;
+    this.y = startY;
+    this.color = color;
+    this.vx = 0;
+    this.vy = 0;
+    this.sx = 0; // 2nd moment
+    this.sy = 0;
+    this.stepCount = 0;
+    this.history = [{ x: startX, y: startY }];
+  }
+
+  OptimizerParticle.prototype.step = function (lossFn, lr) {
+    this.stepCount++;
+    var grad = lossFn.gradient(this.x, this.y);
+    var gx = grad.dx;
+    var gy = grad.dy;
+
+    // Gradient clipping
+    var clip = 15;
+    gx = Math.max(-clip, Math.min(clip, gx));
+    gy = Math.max(-clip, Math.min(clip, gy));
+
+    if (this.type === 'sgd') {
+      this.x -= lr * gx;
+      this.y -= lr * gy;
+    } else if (this.type === 'momentum') {
+      var beta = 0.85;
+      this.vx = beta * this.vx + (1 - beta) * gx;
+      this.vy = beta * this.vy + (1 - beta) * gy;
+      this.x -= lr * this.vx;
+      this.y -= lr * this.vy;
+    } else if (this.type === 'rmsprop') {
+      var gamma = 0.9;
+      this.sx = gamma * this.sx + (1 - gamma) * (gx * gx);
+      this.sy = gamma * this.sy + (1 - gamma) * (gy * gy);
+      this.x -= (lr / (Math.sqrt(this.sx) + 1e-7)) * gx;
+      this.y -= (lr / (Math.sqrt(this.sy) + 1e-7)) * gy;
+    } else if (this.type === 'adam') {
+      var b1 = 0.9, b2 = 0.999;
+      this.vx = b1 * this.vx + (1 - b1) * gx;
+      this.vy = b1 * this.vy + (1 - b1) * gy;
+      this.sx = b2 * this.sx + (1 - b2) * (gx * gx);
+      this.sy = b2 * this.sy + (1 - b2) * (gy * gy);
+
+      // Bias correction
+      var vHatX = this.vx / (1 - Math.pow(b1, this.stepCount));
+      var vHatY = this.vy / (1 - Math.pow(b1, this.stepCount));
+      var sHatX = this.sx / (1 - Math.pow(b2, this.stepCount));
+      var sHatY = this.sy / (1 - Math.pow(b2, this.stepCount));
+
+      this.x -= (lr / (Math.sqrt(sHatX) + 1e-7)) * vHatX;
+      this.y -= (lr / (Math.sqrt(sHatY) + 1e-7)) * vHatY;
+    }
+
+    // Keep history (max 80 points)
+    if (this.history.length > 80) this.history.shift();
+    this.history.push({ x: this.x, y: this.y });
+  };
+
+  // ── MicroGraph: Pure JS Autograd DAG Engine ───────────────────────────────
+
+  var _nodeId = 0;
+  function AutogradValue(data, children, op, label) {
+    this.id = ++_nodeId;
+    this.data = typeof data === 'number' ? data : 0;
+    this.grad = 0.0;
+    this._backward = function () {};
+    this._prev = children ? children.slice() : [];
+    this._op = op || '';
+    this.label = label || '';
+  }
+
+  AutogradValue.prototype.add = function (other, label) {
+    other = other instanceof AutogradValue ? other : new AutogradValue(other);
+    var out = new AutogradValue(this.data + other.data, [this, other], '+', label);
+    out._backward = function () {
+      this.grad += 1.0 * out.grad;
+      other.grad += 1.0 * out.grad;
+    }.bind(this);
+    return out;
+  };
+
+  AutogradValue.prototype.mul = function (other, label) {
+    other = other instanceof AutogradValue ? other : new AutogradValue(other);
+    var out = new AutogradValue(this.data * other.data, [this, other], '×', label);
+    out._backward = function () {
+      this.grad += other.data * out.grad;
+      other.grad += this.data * out.grad;
+    }.bind(this);
+    return out;
+  };
+
+  AutogradValue.prototype.relu = function (label) {
+    var out = new AutogradValue(this.data > 0 ? this.data : 0, [this], 'ReLU', label);
+    out._backward = function () {
+      this.grad += (out.data > 0 ? 1.0 : 0.0) * out.grad;
+    }.bind(this);
+    return out;
+  };
+
+  AutogradValue.prototype.backward = function () {
+    var topo = [];
+    var visited = {};
+    function buildTopo(v) {
+      if (!visited[v.id]) {
+        visited[v.id] = true;
+        v._prev.forEach(buildTopo);
+        topo.push(v);
+      }
+    }
+    buildTopo(this);
+
+    this.grad = 1.0;
+    for (var i = topo.length - 1; i >= 0; i--) {
+      topo[i]._backward();
+    }
+    return topo;
+  };
+
   // ── Public Export ─────────────────────────────────────────────────────────
 
   return {
     EPSILON: EPSILON,
     Vector2D: Vector2D,
     Matrix2x2: Matrix2x2,
+    Vector3D: Vector3D,
+    Matrix3x3: Matrix3x3,
+    project3DTo2D: project3DTo2D,
+    LossFunctions: LossFunctions,
+    OptimizerParticle: OptimizerParticle,
+    AutogradValue: AutogradValue,
     solveEigensystem: solveEigensystem,
     computeSVD2x2: computeSVD2x2,
     AnimationController: AnimationController
   };
 });
+

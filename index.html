@@ -27,16 +27,31 @@
       <!-- Mode Switcher Tabs -->
       <nav class="mode-selector" aria-label="Operation Modes">
         <button class="mode-btn active" data-mode="transform">
-          <span>🌀</span> 2D Transform
+          <span>🌀</span> 2D Matrix
         </button>
         <button class="mode-btn" data-mode="eigen">
-          <span>⚡</span> Eigen Analysis
+          <span>⚡</span> Eigen
         </button>
         <button class="mode-btn" data-mode="mult">
-          <span>✖</span> Matrix Chain (A×B)
+          <span>✖</span> A×B
         </button>
         <button class="mode-btn" data-mode="vectors">
-          <span>🎯</span> Vector Sandbox
+          <span>🎯</span> Vectors
+        </button>
+        <button class="mode-btn" data-mode="3d">
+          <span>🧊</span> 3D Space
+        </button>
+        <button class="mode-btn" data-mode="loss">
+          <span>📉</span> LossLab
+        </button>
+        <button class="mode-btn" data-mode="autograd">
+          <span>🕸️</span> Autograd
+        </button>
+        <button class="mode-btn" data-mode="notes">
+          <span>📚</span> Notes
+        </button>
+        <button class="mode-btn" data-mode="quiz">
+          <span>🎓</span> Viva Quiz
         </button>
       </nav>
 
@@ -319,6 +334,200 @@
                 <span id="val-mag-v" class="telemetry-value">2.24</span>
               </div>
             </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 5: 3D VectorSpace ───────────────────────────────────── -->
+        <div id="panel-3d" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🧊</span> 3D Transformations (3×3)</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Yaw (Rotate Y)</span><span id="val-yaw-3d" class="slider-val">25°</span></div>
+              <input type="range" id="slider-yaw-3d" class="custom-slider" min="-180" max="180" value="25">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Pitch (Rotate X)</span><span id="val-pitch-3d" class="slider-val">20°</span></div>
+              <input type="range" id="slider-pitch-3d" class="custom-slider" min="-90" max="90" value="20">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Roll (Rotate Z)</span><span id="val-roll-3d" class="slider-val">0°</span></div>
+              <input type="range" id="slider-roll-3d" class="custom-slider" min="-180" max="180" value="0">
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> 3D Scaling (Sx, Sy, Sz)</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>X Scale (Sx)</span><span id="val-scale-x" class="slider-val">1.0</span></div>
+              <input type="range" id="slider-scale-x" class="custom-slider" min="0" max="2.5" step="0.1" value="1.0">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Y Scale (Sy)</span><span id="val-scale-y" class="slider-val">1.0</span></div>
+              <input type="range" id="slider-scale-y" class="custom-slider" min="0" max="2.5" step="0.1" value="1.0">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Z Scale (Sz)</span><span id="val-scale-z" class="slider-val">1.0</span></div>
+              <input type="range" id="slider-scale-z" class="custom-slider" min="0" max="2.5" step="0.1" value="1.0">
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>✨</span> 3D Presets</h2>
+            </div>
+            <div class="preset-grid">
+              <button class="btn-preset" data-preset-3d="cube">Unit Cube</button>
+              <button class="btn-preset" data-preset-3d="sphere">Sphere Wire</button>
+              <button class="btn-preset" data-preset-3d="shear3d">3D Shear</button>
+              <button class="btn-preset" data-preset-3d="collapse3d">Planar (det=0)</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📦</span> 3D Volume & Determinant</h2>
+            </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-card">
+                <span class="telemetry-label">3D Volume (det A)</span>
+                <span id="val-det-3d" class="telemetry-value">1.00</span>
+                <span id="badge-det-3d" class="telemetry-badge badge-det-pos">Volume Preserved</span>
+              </div>
+              <div class="telemetry-card">
+                <span class="telemetry-label">Camera Orbit</span>
+                <span class="telemetry-value">Drag Canvas</span>
+                <span class="telemetry-badge badge-det-pos">60 FPS 3D</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 6: LossLab (Optimizers) ─────────────────────────────── -->
+        <div id="panel-loss" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🌄</span> Loss Landscape</h2>
+            </div>
+            <div class="shape-selector">
+              <button class="btn-loss active" data-loss="bowl">Convex Bowl</button>
+              <button class="btn-loss" data-loss="saddle">Saddle Point</button>
+              <button class="btn-loss" data-loss="rosenbrock" style="grid-column: span 2;">Rosenbrock Valley</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚙️</span> Hyperparameters & Controls</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Learning Rate (α)</span><span id="val-lr" class="slider-val">0.05</span></div>
+              <input type="range" id="slider-lr" class="custom-slider" min="0.005" max="0.15" step="0.005" value="0.05">
+            </div>
+
+            <div class="preset-grid" style="grid-template-columns: 1fr 1fr; margin-top: 0.5rem;">
+              <button id="btn-start-descent" class="btn-preset" style="background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #a7f3d0;">▶ Run Race</button>
+              <button id="btn-reset-descent" class="btn-preset">↺ Reset Balls</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🏎️</span> Live Optimizer Loss</h2>
+            </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-card" style="border-left: 3px solid #ef4444;">
+                <span class="telemetry-label" style="color: #f87171;">SGD</span>
+                <span id="loss-val-sgd" class="telemetry-value">--</span>
+              </div>
+              <div class="telemetry-card" style="border-left: 3px solid #f59e0b;">
+                <span class="telemetry-label" style="color: #fbbf24;">Momentum</span>
+                <span id="loss-val-mom" class="telemetry-value">--</span>
+              </div>
+              <div class="telemetry-card" style="border-left: 3px solid #06b6d4;">
+                <span class="telemetry-label" style="color: #67e8f9;">RMSprop</span>
+                <span id="loss-val-rms" class="telemetry-value">--</span>
+              </div>
+              <div class="telemetry-card" style="border-left: 3px solid #10b981;">
+                <span class="telemetry-label" style="color: #6ee7b7;">Adam</span>
+                <span id="loss-val-adam" class="telemetry-value">--</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 7: MicroGraph (Autograd) ─────────────────────────────── -->
+        <div id="panel-autograd" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🕸️</span> Computational Graph</h2>
+            </div>
+            <div class="shape-selector">
+              <button class="btn-autograd-preset active" data-graph="neuron">Neuron + ReLU</button>
+              <button class="btn-autograd-preset" data-graph="loss">MSE Loss</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚡</span> Autograd Controls</h2>
+            </div>
+            <div class="preset-grid" style="grid-template-columns: 1fr 1fr;">
+              <button id="btn-forward-pass" class="btn-preset" style="background: rgba(99, 102, 241, 0.2); border-color: var(--accent-primary); color: #c7d2fe;">▶ Forward Pass</button>
+              <button id="btn-backward-pass" class="btn-preset" style="background: rgba(245, 158, 11, 0.2); border-color: var(--eigen-1); color: #fde68a;">◀ Backprop</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📝</span> Backpropagation Status</h2>
+            </div>
+            <div class="math-formula-box">
+              <div class="formula-title">Chain Rule: ∂L/∂w = (∂L/∂y) · (∂y/∂w)</div>
+              <div id="autograd-status-text" class="formula-steps">Click 'Forward Pass' to compute node outputs, then 'Backprop' to watch gradient flow!</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 8: Theory Vault (Simplified Notes) ───────────────────── -->
+        <div id="panel-notes" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📚</span> FY Engineering Theory Notes</h2>
+            </div>
+            <select id="notes-topic-select" class="matrix-input" style="width: 100%; height: 38px; text-align: left; padding: 0 0.6rem;">
+              <option value="matrix-transform">1. Matrices as Space Transformers</option>
+              <option value="determinant">2. The Determinant & Volume Scaling</option>
+              <option value="eigenvalues">3. Eigenvalues, Eigenvectors & Resonance</option>
+              <option value="diagonalization">4. Diagonalization & Matrix Powers</option>
+              <option value="svd">5. SVD (Singular Value Decomposition)</option>
+              <option value="rank-nullity">6. Rank-Nullity Theorem & Collapse</option>
+              <option value="optimizers">7. Optimizers (SGD, Momentum, Adam)</option>
+              <option value="backprop">8. Automatic Differentiation & Autograd</option>
+            </select>
+          </section>
+
+          <section class="sidebar-section">
+            <div id="notes-content-container" class="theory-note-card">
+              <!-- Dynamically populated lecture note content -->
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 9: Viva Exam Quiz ────────────────────────────────────── -->
+        <div id="panel-quiz" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🎓</span> Viva Prep Quiz</h2>
+              <span id="quiz-score-badge" class="telemetry-badge badge-det-pos">Score: 0/10</span>
+            </div>
+            <div id="quiz-question-card" class="quiz-container">
+              <!-- Dynamically populated question -->
+            </div>
+            <button id="btn-quiz-next" class="btn-preset" style="margin-top: 0.6rem; width: 100%;">Next Question →</button>
           </section>
         </div>
 
