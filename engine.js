@@ -225,6 +225,9 @@
       determinant: det,
       discriminant: discriminant,
       isReal: discriminant >= -EPSILON,
+      // LaTeX / educational step breakdown
+      equationString: 'λ² - (' + tr.toFixed(2) + ')λ + (' + det.toFixed(2) + ') = 0',
+      discriminantString: 'Δ = (' + tr.toFixed(2) + ')² - 4(' + det.toFixed(2) + ') = ' + discriminant.toFixed(2),
       eigenvalues: [],
       eigenvectors: []
     };
@@ -302,6 +305,35 @@
     };
   }
 
+  // ── SVD (Singular Value Decomposition) 2x2 Helper ────────────────────────
+  // A^T * A is symmetric positive semi-definite
+  // Singular values σ₁, σ₂ are the square roots of eigenvalues of A^T * A
+  function computeSVD2x2(matrix) {
+    var a = matrix.a, b = matrix.b, c = matrix.c, d = matrix.d;
+    // M = A^T * A
+    // [a  c] [a  b] = [a² + c²       ab + cd]
+    // [b  d] [c  d]   [ab + cd       b² + d²]
+    var m11 = a * a + c * c;
+    var m12 = a * b + cd(a, b, c, d);
+    var m22 = b * b + d * d;
+
+    function cd(a, b, c, d) { return a * b + c * d; }
+
+    var tr = m11 + m22;
+    var det = m11 * m22 - m12 * m12;
+    var disc = Math.max(0, tr * tr - 4 * det);
+    var sqrtDisc = Math.sqrt(disc);
+
+    var eig1 = Math.max(0, (tr + sqrtDisc) / 2);
+    var eig2 = Math.max(0, (tr - sqrtDisc) / 2);
+
+    return {
+      sigma1: Math.sqrt(eig1),
+      sigma2: Math.sqrt(eig2),
+      conditionNumber: Math.sqrt(eig2) > EPSILON ? Math.sqrt(eig1) / Math.sqrt(eig2) : Infinity
+    };
+  }
+
   // ── Smooth Animation Controller ───────────────────────────────────────────
 
   function AnimationController(onUpdate, onComplete) {
@@ -359,6 +391,7 @@
     Vector2D: Vector2D,
     Matrix2x2: Matrix2x2,
     solveEigensystem: solveEigensystem,
+    computeSVD2x2: computeSVD2x2,
     AnimationController: AnimationController
   };
 });

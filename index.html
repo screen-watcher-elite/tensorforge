@@ -42,8 +42,11 @@
 
       <!-- Global Actions -->
       <div class="header-actions">
-        <button id="btn-reset" class="btn-icon-action" title="Reset Matrix to Identity">↺</button>
-        <button id="btn-recenter" class="btn-icon-action" title="Recenter Viewport">⌖</button>
+        <button id="btn-snapshot" class="btn-icon-action" title="Export High-Res Snapshot (PNG)">📷</button>
+        <button id="btn-toggle-grid" class="btn-icon-action" title="Toggle Transformed Grid (G)">🌐</button>
+        <button id="btn-reset" class="btn-icon-action" title="Reset Matrix to Identity (R)">↺</button>
+        <button id="btn-recenter" class="btn-icon-action" title="Recenter Viewport (C)">⌖</button>
+        <button id="btn-help" class="btn-icon-action" title="Keyboard Shortcuts & Theory (?)">?</button>
       </div>
     </header>
 
@@ -53,84 +56,229 @@
       <!-- Left Sidebar: Control Deck -->
       <aside class="control-sidebar">
 
-        <!-- 2x2 Matrix Input Deck -->
-        <section class="sidebar-section">
-          <div class="section-header">
-            <h2 class="section-title"><span>🔲</span> Transformation Matrix</h2>
-          </div>
+        <!-- ── PANEL 1: 2D Transformation (Default) ───────────────────────── -->
+        <div id="panel-transform" class="mode-panel active">
+          <!-- 2x2 Matrix Input Deck -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🔲</span> Transformation Matrix (A)</h2>
+            </div>
 
-          <div class="matrix-container">
-            <span class="matrix-label">A =</span>
-            <div class="matrix-bracket">
-              <div class="matrix-cell-group">
-                <span class="cell-label">col 1 (î)</span>
-                <input type="number" id="mat-a" class="matrix-input" step="0.1" value="1.50">
-                <input type="number" id="mat-c" class="matrix-input" step="0.1" value="0.50">
+            <div class="matrix-container">
+              <span class="matrix-label">A =</span>
+              <div class="matrix-bracket">
+                <div class="matrix-cell-group">
+                  <span class="cell-label">col 1 (î)</span>
+                  <input type="number" id="mat-a" class="matrix-input" step="0.1" value="1.50">
+                  <input type="number" id="mat-c" class="matrix-input" step="0.1" value="0.50">
+                </div>
+                <div class="matrix-cell-group">
+                  <span class="cell-label">col 2 (ĵ)</span>
+                  <input type="number" id="mat-b" class="matrix-input" step="0.1" value="0.50">
+                  <input type="number" id="mat-d" class="matrix-input" step="0.1" value="1.20">
+                </div>
               </div>
-              <div class="matrix-cell-group">
-                <span class="cell-label">col 2 (ĵ)</span>
-                <input type="number" id="mat-b" class="matrix-input" step="0.1" value="0.50">
-                <input type="number" id="mat-d" class="matrix-input" step="0.1" value="1.20">
+            </div>
+
+            <!-- Basis Vector Chips -->
+            <div class="basis-legend">
+              <div class="basis-chip">
+                <span class="basis-dot dot-i"></span>
+                <span>î = [a, c]ᵀ</span>
+              </div>
+              <div class="basis-chip">
+                <span class="basis-dot dot-j"></span>
+                <span>ĵ = [b, d]ᵀ</span>
               </div>
             </div>
-          </div>
+          </section>
 
-          <!-- Basis Vector Chips -->
-          <div class="basis-legend">
-            <div class="basis-chip">
-              <span class="basis-dot dot-i"></span>
-              <span>î = [a, c]ᵀ</span>
+          <!-- Shape To Transform -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Shape to Transform</h2>
             </div>
-            <div class="basis-chip">
-              <span class="basis-dot dot-j"></span>
-              <span>ĵ = [b, d]ᵀ</span>
+            <div class="shape-selector">
+              <button class="btn-shape active" data-shape="square">Unit Square</button>
+              <button class="btn-shape" data-shape="circle">Unit Circle (SVD)</button>
+              <button class="btn-shape" data-shape="house">House</button>
+              <button class="btn-shape" data-shape="letterF">Letter F</button>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- Dynamic Controls (Rotation & Shear) -->
-        <section class="sidebar-section">
-          <div class="section-header">
-            <h2 class="section-title"><span>🎛</span> Continuous Controls</h2>
-          </div>
-
-          <div class="slider-group">
-            <div class="slider-header">
-              <span>Rotation Angle (θ)</span>
-              <span id="val-rotation" class="slider-val">0°</span>
+          <!-- Dynamic Controls (Rotation & Shear) -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🎛</span> Continuous Controls</h2>
             </div>
-            <input type="range" id="slider-rotation" class="custom-slider" min="-180" max="180" value="0" step="1">
-          </div>
 
-          <div class="slider-group">
-            <div class="slider-header">
-              <span>Horizontal Shear (k)</span>
-              <span id="val-shear" class="slider-val">0.00</span>
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Rotation Angle (θ)</span>
+                <span id="val-rotation" class="slider-val">0°</span>
+              </div>
+              <input type="range" id="slider-rotation" class="custom-slider" min="-180" max="180" value="0" step="1">
             </div>
-            <input type="range" id="slider-shear" class="custom-slider" min="-3" max="3" value="0" step="0.1">
-          </div>
-        </section>
 
-        <!-- Presets -->
-        <section class="sidebar-section">
-          <div class="section-header">
-            <h2 class="section-title"><span>✨</span> Presets</h2>
-          </div>
+            <div class="slider-group">
+              <div class="slider-header">
+                <span>Horizontal Shear (k)</span>
+                <span id="val-shear" class="slider-val">0.00</span>
+              </div>
+              <input type="range" id="slider-shear" class="custom-slider" min="-3" max="3" value="0" step="0.1">
+            </div>
+          </section>
 
-          <div class="preset-grid">
-            <button class="btn-preset" data-preset="identity">Identity</button>
-            <button class="btn-preset" data-preset="rotate45">Rotate 45°</button>
-            <button class="btn-preset" data-preset="rotate90">Rotate 90°</button>
-            <button class="btn-preset" data-preset="shearX">Shear X</button>
-            <button class="btn-preset" data-preset="shearY">Shear Y</button>
-            <button class="btn-preset" data-preset="scaleUp">Scale</button>
-            <button class="btn-preset" data-preset="reflectX">Reflect X</button>
-            <button class="btn-preset" data-preset="reflectY">Reflect Y</button>
-            <button class="btn-preset" data-preset="singular">Singular (0)</button>
-          </div>
-        </section>
+          <!-- Presets -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>✨</span> Presets</h2>
+            </div>
 
-        <!-- Real-Time Math Telemetry -->
+            <div class="preset-grid">
+              <button class="btn-preset" data-preset="identity">Identity</button>
+              <button class="btn-preset" data-preset="rotate45">Rotate 45°</button>
+              <button class="btn-preset" data-preset="rotate90">Rotate 90°</button>
+              <button class="btn-preset" data-preset="shearX">Shear X</button>
+              <button class="btn-preset" data-preset="shearY">Shear Y</button>
+              <button class="btn-preset" data-preset="scaleUp">Scale</button>
+              <button class="btn-preset" data-preset="reflectX">Reflect X</button>
+              <button class="btn-preset" data-preset="reflectY">Reflect Y</button>
+              <button class="btn-preset" data-preset="singular">Singular (0)</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 2: Eigen Analysis ───────────────────────────────────── -->
+        <div id="panel-eigen" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚡</span> Characteristic Equation</h2>
+            </div>
+            <div class="math-formula-box">
+              <div class="formula-title">det(A - λI) = 0</div>
+              <div id="eigen-formula-sub" class="formula-content">λ² - tr(A)λ + det(A) = 0</div>
+              <div id="eigen-quad-expanded" class="formula-steps">λ² - (2.70)λ + (1.55) = 0</div>
+            </div>
+
+            <div class="discriminant-status">
+              <span class="telemetry-label">Discriminant (Δ)</span>
+              <div id="eigen-disc-val" class="telemetry-value">Δ = +1.10</div>
+              <span id="badge-disc" class="telemetry-badge badge-det-pos">2 Distinct Real Eigenvalues</span>
+            </div>
+          </section>
+
+          <!-- Interactive Vector Scanner -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🎯</span> Eigenvector Scanner</h2>
+            </div>
+            <p class="section-hint">Drag the unit vector on the canvas. When x and Ax align on the same line, an eigenvector is discovered!</p>
+            
+            <div class="scanner-gauge-container">
+              <div class="slider-header">
+                <span>Collinearity Match</span>
+                <span id="val-collinearity" class="slider-val">--%</span>
+              </div>
+              <div class="progress-bar"><div id="bar-collinearity" class="progress-fill" style="width: 0%"></div></div>
+              <div id="eigen-found-alert" class="eigen-alert hidden">✨ Invariant Line Found: Ax = λx</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 3: Matrix Chain (A × B) ─────────────────────────────── -->
+        <div id="panel-mult" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>✖</span> Second Matrix (B)</h2>
+            </div>
+            <div class="matrix-container">
+              <span class="matrix-label">B =</span>
+              <div class="matrix-bracket">
+                <div class="matrix-cell-group">
+                  <span class="cell-label">col 1</span>
+                  <input type="number" id="mat-b-a" class="matrix-input" step="0.1" value="0.80">
+                  <input type="number" id="mat-b-c" class="matrix-input" step="0.1" value="0.60">
+                </div>
+                <div class="matrix-cell-group">
+                  <span class="cell-label">col 2</span>
+                  <input type="number" id="mat-b-b" class="matrix-input" step="0.1" value="-0.60">
+                  <input type="number" id="mat-b-d" class="matrix-input" step="0.1" value="0.80">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🔀</span> Non-Commutativity Proof</h2>
+            </div>
+            <div class="comparison-grid">
+              <div class="comp-card">
+                <span class="telemetry-label">Product AB</span>
+                <div id="val-prod-ab" class="comp-matrix">[ 1.50, -0.50 ]<br>[ 1.12, 0.66 ]</div>
+              </div>
+              <div class="comp-card">
+                <span class="telemetry-label">Product BA</span>
+                <div id="val-prod-ba" class="comp-matrix">[ 0.90, -0.32 ]<br>[ 1.30, 1.26 ]</div>
+              </div>
+            </div>
+            <div class="non-comm-alert">Notice: <strong>AB ≠ BA</strong> in general! Order of transformations matters.</div>
+          </section>
+        </div>
+
+        <!-- ── PANEL 4: Vector Sandbox ───────────────────────────────────── -->
+        <div id="panel-vectors" class="mode-panel hidden">
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🎯</span> Vectors u and v</h2>
+            </div>
+            <div class="vector-inputs-grid">
+              <div class="vec-input-card">
+                <span class="telemetry-label" style="color: var(--vec-i)">Vector u</span>
+                <div class="vec-coords-row">
+                  <span>x:</span><input type="number" id="vec-u-x" class="matrix-input" step="0.5" value="2.0">
+                  <span>y:</span><input type="number" id="vec-u-y" class="matrix-input" step="0.5" value="1.0">
+                </div>
+              </div>
+              <div class="vec-input-card">
+                <span class="telemetry-label" style="color: var(--vec-j)">Vector v</span>
+                <div class="vec-coords-row">
+                  <span>x:</span><input type="number" id="vec-v-x" class="matrix-input" step="0.5" value="1.0">
+                  <span>y:</span><input type="number" id="vec-v-y" class="matrix-input" step="0.5" value="2.0">
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Dot Product & Projection</h2>
+            </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-card">
+                <span class="telemetry-label">u · v (Dot Product)</span>
+                <span id="val-dot-product" class="telemetry-value">4.00</span>
+                <span id="badge-dot-angle" class="telemetry-badge badge-det-pos">Acute Angle</span>
+              </div>
+              <div class="telemetry-card">
+                <span class="telemetry-label">Angle (θ)</span>
+                <span id="val-vector-angle" class="telemetry-value">36.9°</span>
+                <span class="telemetry-badge badge-det-pos">cos θ = 0.80</span>
+              </div>
+              <div class="telemetry-card">
+                <span class="telemetry-label">||u|| (Length)</span>
+                <span id="val-mag-u" class="telemetry-value">2.24</span>
+              </div>
+              <div class="telemetry-card">
+                <span class="telemetry-label">||v|| (Length)</span>
+                <span id="val-mag-v" class="telemetry-value">2.24</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Real-Time Math Telemetry (Always Visible) -->
         <section class="sidebar-section">
           <div class="section-header">
             <h2 class="section-title"><span>📊</span> Mathematical Invariants</h2>
@@ -213,6 +361,39 @@
 
     </main>
 
+  </div>
+
+  <!-- Help & Shortcuts Modal -->
+  <div id="modal-help" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Linear Algebra Theory &amp; Shortcuts</h3>
+        <button id="btn-close-help" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="theory-section">
+          <h4>🎓 FY Engineering Curriculum Reference</h4>
+          <ul class="theory-list">
+            <li><strong>Matrix as Coordinate Basis:</strong> The columns of $A = \begin{bmatrix} a & b \\ c & d \end{bmatrix}$ define where standard basis vectors $\hat{i} = [1, 0]^T$ and $\hat{j} = [0, 1]^T$ land.</li>
+            <li><strong>Determinant ($\det A$):</strong> Represents the signed area scaling factor of any 2D region. If $\det < 0$, space is flipped (orientation reversed). If $\det = 0$, space collapses into 1D or a point.</li>
+            <li><strong>Eigenvalues ($\lambda$):</strong> Solutions to the characteristic equation $\det(A - \lambda I) = 0$. Invariant directions where $A\vec{v} = \lambda \vec{v}$ (vectors only scale, never rotate).</li>
+            <li><strong>Non-Commutative:</strong> In general, $AB \neq BA$ because the order of consecutive geometric transformations matters!</li>
+          </ul>
+        </div>
+
+        <div class="theory-section">
+          <h4>⌨️ Keyboard Shortcuts</h4>
+          <div class="shortcuts-grid">
+            <div class="shortcut-chip"><kbd>1</kbd> - <kbd>4</kbd> <span>Switch Modes</span></div>
+            <div class="shortcut-chip"><kbd>R</kbd> <span>Reset to Identity</span></div>
+            <div class="shortcut-chip"><kbd>C</kbd> <span>Recenter Canvas</span></div>
+            <div class="shortcut-chip"><kbd>G</kbd> <span>Toggle Warped Grid</span></div>
+            <div class="shortcut-chip"><kbd>+</kbd> / <kbd>-</kbd> <span>Zoom In / Out</span></div>
+            <div class="shortcut-chip"><kbd>Shift</kbd> + Drag <span>Snap to 0.25 Grid</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="engine.js"></script>
