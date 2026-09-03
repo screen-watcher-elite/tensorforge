@@ -103,6 +103,7 @@
               <button class="btn-shape" data-shape="circle">Unit Circle (SVD)</button>
               <button class="btn-shape" data-shape="house">House</button>
               <button class="btn-shape" data-shape="letterF">Letter F</button>
+              <button class="btn-shape" data-shape="cloud" style="grid-column: span 2;">Data Scatter Cloud (PCA / ML)</button>
             </div>
           </section>
 
@@ -184,6 +185,17 @@
               <div id="eigen-found-alert" class="eigen-alert hidden">✨ Invariant Line Found: Ax = λx</div>
             </div>
           </section>
+
+          <!-- Diagonalization & Matrix Powers Card -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🔄</span> Diagonalization (A = PDP⁻¹)</h2>
+            </div>
+            <div id="diag-explanation" class="math-formula-box">
+              <div class="formula-title">Eigenbasis Factorization</div>
+              <div id="diag-status-text" class="formula-steps">In the eigenbasis, A simply stretches space by λ₁ and λ₂ along the invariant lines without any shearing or rotation!</div>
+            </div>
+          </section>
         </div>
 
         <!-- ── PANEL 3: Matrix Chain (A × B) ─────────────────────────────── -->
@@ -248,6 +260,12 @@
                   <span>y:</span><input type="number" id="vec-v-y" class="matrix-input" step="0.5" value="2.0">
                 </div>
               </div>
+            </div>
+
+            <!-- Vector Operations Helper Bar -->
+            <div class="shape-selector" style="margin-top: 0.5rem;">
+              <button id="btn-normalize-u" class="btn-shape">Normalize u (û)</button>
+              <button id="btn-orthogonalize-v" class="btn-shape">Make v ⊥ u</button>
             </div>
           </section>
 

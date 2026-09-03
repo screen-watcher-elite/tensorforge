@@ -53,6 +53,18 @@
     hoverTarget: null
   };
 
+  // Fixed 2D Gaussian scatter distribution for PCA / Covariance visualization
+  var scatterPoints = [];
+  (function initScatter() {
+    for (var p = 0; p < 45; p++) {
+      var u1 = (p * 17 + 13) % 45 / 45;
+      var u2 = (p * 31 + 7) % 45 / 45;
+      var r = Math.sqrt(-2 * Math.log(u1 + 0.05)) * 0.55;
+      var th = 2 * Math.PI * u2;
+      scatterPoints.push(new Vector2D(r * Math.cos(th), r * Math.sin(th) * 0.55));
+    }
+  })();
+
   var animController = new Engine.AnimationController(function (currentMatrix) {
     state.matrix = currentMatrix;
     syncMatrixInputs();
@@ -387,6 +399,22 @@
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+
+    } else if (state.shape === 'cloud') {
+      // 2D Gaussian Data Scatter (Covariance / PCA Transformation)
+      ctx.fillStyle = det >= 0 ? 'rgba(99, 102, 241, 0.7)' : 'rgba(245, 158, 11, 0.7)';
+      scatterPoints.forEach(function (pt) {
+        var t = matrix.apply(pt);
+        var sp = worldToScreen(t.x, t.y);
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      var centerScreen = worldToScreen(0, 0);
+      ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+      ctx.fillStyle = '#a5b4fc';
+      ctx.fillText('Data Scatter (Covariance mapped by A)', centerScreen.x + 12, centerScreen.y - 14);
     }
 
     ctx.restore();
@@ -703,8 +731,23 @@
       badgeDisc.className = 'telemetry-badge badge-det-neg';
     }
 
+    // Diagonalization (A = P D P^-1) readout
+    var diagText = $('diag-status-text');
+    if (diagText) {
+      if (eigens.isReal && eigens.eigenvectors.length >= 2 && Math.abs(eigens.eigenvalues[0].value - eigens.eigenvalues[1].value) > Engine.EPSILON) {
+        var ev1 = eigens.eigenvectors[0].vector;
+        var ev2 = eigens.eigenvectors[1].vector;
+        diagText.innerHTML = 'Diagonalizable over ℝ:<br><strong>P</strong> = [ ' + ev1.x.toFixed(2) + ', ' + ev2.x.toFixed(2) + ' ; ' + ev1.y.toFixed(2) + ', ' + ev2.y.toFixed(2) + ' ]<br><strong>D</strong> = diag(' + eigens.eigenvalues[0].value.toFixed(2) + ', ' + eigens.eigenvalues[1].value.toFixed(2) + ')<br>Powers: Aᵏ = P·Dᵏ·P⁻¹';
+      } else if (!eigens.isReal) {
+        diagText.textContent = 'Cannot be diagonalized over ℝ (no real eigenbasis). A represents a rotation/spiral.';
+      } else {
+        diagText.textContent = 'Defective or uniform scalar matrix.';
+      }
+    }
+
     // Matrix Multiplication Comparison (Mode 3)
     updateMultComparison();
+    updateUrlHash();
   }
 
   function updateMultComparison() {
@@ -1057,6 +1100,28 @@
     $('btn-close-help').addEventListener('click', function () { modalHelp.classList.add('hidden'); });
     modalHelp.addEventListener('click', function (e) { if (e.target === modalHelp) modalHelp.classList.add('hidden'); });
 
+    // Vector Sandbox quick helpers
+    var btnNormU = $('btn-normalize-u');
+    if (btnNormU) {
+      btnNormU.addEventListener('click', function () {
+        state.vecU = state.vecU.normalize();
+        vecUXInput.value = state.vecU.x.toFixed(1);
+        vecUYInput.value = state.vecU.y.toFixed(1);
+        render();
+      });
+    }
+
+    var btnOrthoV = $('btn-orthogonalize-v');
+    if (btnOrthoV) {
+      btnOrthoV.addEventListener('click', function () {
+        var proj = state.vecV.projectOnto(state.vecU);
+        state.vecV = state.vecV.sub(proj);
+        vecVXInput.value = state.vecV.x.toFixed(1);
+        vecVYInput.value = state.vecV.y.toFixed(1);
+        render();
+      });
+    }
+
     // Matrix multiplication drawer
     multSlider.addEventListener('input', function () {
       state.multT = parseFloat(this.value);
@@ -1108,9 +1173,45 @@
     render();
   }
 
+  // ── URL State Synchronization ────────────────────────────────────────────
+
+  var hashDebounceTimer = null;
+  function updateUrlHash() {
+    if (hashDebounceTimer) clearTimeout(hashDebounceTimer);
+    hashDebounceTimer = setTimeout(function () {
+      var m = state.matrix;
+      var hash = 'a=' + m.a.toFixed(2) + '&b=' + m.b.toFixed(2) + '&c=' + m.c.toFixed(2) + '&d=' + m.d.toFixed(2) + '&m=' + state.mode;
+      window.location.hash = hash;
+    }, 400);
+  }
+
+  function readUrlHash() {
+    var h = window.location.hash.replace(/^#/, '');
+    if (!h) return;
+    var params = {};
+    h.split('&').forEach(function (part) {
+      var pair = part.split('=');
+      if (pair.length === 2) params[pair[0]] = pair[1];
+    });
+
+    if (params.a && params.b && params.c && params.d) {
+      var a = parseFloat(params.a), b = parseFloat(params.b), c = parseFloat(params.c), d = parseFloat(params.d);
+      if (!isNaN(a) && !isNaN(b) && !isNaN(c) && !isNaN(d)) {
+        state.matrix = new Matrix2x2(a, b, c, d);
+      }
+    }
+    if (params.m && ['transform', 'eigen', 'mult', 'vectors'].indexOf(params.m) !== -1) {
+      setMode(params.m);
+      document.querySelectorAll('.mode-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === params.m);
+      });
+    }
+  }
+
   // ── Initialization ────────────────────────────────────────────────────────
 
   function init() {
+    readUrlHash();
     initEvents();
     syncMatrixInputs();
     updateTelemetry();

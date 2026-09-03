@@ -17,8 +17,11 @@ Linear Algebra is the foundational math of Artificial Intelligence and Machine L
 1. **Grab and Drag Basis Vectors**: Directly manipulate $\hat{i}$ and $\hat{j}$ on the Cartesian coordinate plane to see space shear, rotate, scale, or collapse.
 2. **Watch the Determinant Morph**: The shaded unit square parallelogram dynamically computes $\det(A) = ad - bc$, color-coding area expansion, orientation inversions ($\det < 0$), and dimensional collapse ($\det = 0$).
 3. **Visualize Invariant Eigenvectors**: Real-time analytical solver of the characteristic equation $\det(A - \lambda I) = 0$, tracing the invariant span lines where vectors only stretch and never rotate.
-4. **Step Through Matrix Multiplication**: Scrub through the composition of transformations to see visually why matrix multiplication is non-commutative ($AB \neq BA$).
-5. **Vector Sandbox**: Explore vector addition parallelograms, dot products, and orthogonal projections in real time.
+4. **Interactive Eigen Hunter**: Drag a unit vector probe around the origin to hunt for invariant collinear vectors ($\vec{x} \parallel A\vec{x}$) with real-time collinearity gauge feedback.
+5. **Shape Transformation Playground**: Transform not just basis vectors, but the **Unit Circle (SVD / Singular Values $\sigma_1, \sigma_2$)**, classic **Computer Graphics House**, **Letter F** (for chirality/reflection testing), and a **Gaussian Data Cloud (PCA / Covariance mapping)**!
+6. **Matrix Multiplication Stepper ($A \times B$)**: Scrub through the composition of transformations to see visually why matrix multiplication is non-commutative ($AB \neq BA$), with cell-by-cell dot product readouts.
+7. **Vector Sandbox**: Explore vector addition parallelograms, Gram-Schmidt orthogonalization ($\vec{v} \perp \vec{u}$), normalization, and live dot product projections.
+8. **Export & Sharing**: One-click high-resolution PNG snapshot download for homework/assignments and instant URL state sharing (`#a=...&b=...`).
 
 ---
 
@@ -29,9 +32,12 @@ Linear Algebra is the foundational math of Artificial Intelligence and Machine L
 | **Linear Transformations** | Grid warping showing how basis vectors $\hat{i}$ and $\hat{j}$ determine where every vector in $\mathbb{R}^2$ lands. |
 | **Determinants ($\det A$)** | Area scaling factor of the unit square. Signed area represents orientation preservation vs reflection. |
 | **Matrix Rank & Singularity** | Rank 2 = 2D plane preserved; Rank 1 = Space collapses into a 1D line ($\det = 0$); Rank 0 = Origin collapse. |
-| **Eigenvalues & Eigenvectors** | Invariant direction lines $\text{Span}(\vec{v})$ where $A\vec{v} = \lambda \vec{v}$. Stretches along the line by $\lambda$. |
-| **Matrix Multiplication** | Consecutive application of transformations $T(x) = A(Bx)$ with step-by-step interpolation slider. |
-| **Dot Product & Projections** | Real-time orthogonal decomposition $\text{proj}_{\vec{v}}(\vec{u}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{v}\|^2}\vec{v}$. |
+| **Eigenvalues & Invariant Lines** | Exact quadratic characteristic equation breakdown with live substituted values and invariant span lines. |
+| **Matrix Diagonalization ($A = PDP^{-1}$)** | Shows $P = [\vec{v}_1 | \vec{v}_2]$ and $D = \text{diag}(\lambda_1, \lambda_2)$ explaining why matrix powers $A^k = P D^k P^{-1}$ are trivial. |
+| **Singular Value Decomposition (SVD)** | Maps the unit circle into an ellipse with semi-axes representing singular values $\sigma_1$ and $\sigma_2$. |
+| **Covariance / PCA Mapping** | Visualizes how a 2D Gaussian data point cloud stretches and rotates under matrix $A$. |
+| **Matrix Multiplication ($AB \neq BA$)** | Consecutive application of transformations $T(x) = A(Bx)$ with step-by-step interpolation slider and side-by-side comparison. |
+| **Dot Product & Projections** | Real-time orthogonal decomposition $\text{proj}_{\vec{v}}(\vec{u}) = \frac{\vec{u} \cdot \vec{v}}{\|\vec{v}\|^2}\vec{v}$ with acute/obtuse classification. |
 
 ---
 
