@@ -148,6 +148,17 @@
               <button class="btn-preset" data-preset="singular">Singular (0)</button>
             </div>
           </section>
+          <!-- Nullspace / Kernel Banner (Visible when det = 0) -->
+          <div id="nullspace-card" class="sidebar-section hidden" style="border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08);">
+            <div class="section-header">
+              <h2 class="section-title" style="color: #f87171;"><span>⚠️</span> Rank Collapse: det(A) = 0</h2>
+            </div>
+            <div class="math-formula-box" style="border-color: rgba(239, 68, 68, 0.3);">
+              <div class="formula-title" style="color: #f87171;">Rank-Nullity Theorem: dim(ker A) + dim(im A) = 2</div>
+              <div id="nullspace-basis-text" class="formula-steps">Kernel ker(A): Line mapped to origin [0,0]ᵀ.</div>
+              <div id="columnspace-basis-text" class="formula-steps">Image im(A): Line containing all outputs.</div>
+            </div>
+          </div>
         </div>
 
         <!-- ── PANEL 2: Eigen Analysis ───────────────────────────────────── -->
@@ -195,6 +206,21 @@
               <div class="formula-title">Eigenbasis Factorization</div>
               <div id="diag-status-text" class="formula-steps">In the eigenbasis, A simply stretches space by λ₁ and λ₂ along the invariant lines without any shearing or rotation!</div>
             </div>
+          </section>
+
+          <!-- Matrix Power Iteration Stepper -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚡</span> Matrix Powers (Power Iteration)</h2>
+            </div>
+            <div class="preset-grid">
+              <button class="btn-power active" data-power="1">A¹</button>
+              <button class="btn-power" data-power="2">A²</button>
+              <button class="btn-power" data-power="3">A³</button>
+              <button class="btn-power" data-power="4">A⁴</button>
+              <button class="btn-power" data-power="8">A⁸</button>
+            </div>
+            <p class="section-hint">Notice how repeated powers pull space toward the dominant eigenvector direction!</p>
           </section>
         </div>
 

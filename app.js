@@ -199,6 +199,11 @@
       // 3. Render Chosen Shape / Parallelogram
       drawTransformedShape(activeMatrix);
 
+      // 3.5 If det == 0, draw Nullspace (kernel) and Columnspace (range)
+      if (Math.abs(activeMatrix.determinant()) < Engine.EPSILON) {
+        drawRankNullityLines(activeMatrix);
+      }
+
       // 4. Invariant Eigenvector Span lines
       if (state.showEigenSpans && state.mode !== 'mult') {
         drawEigenSpanLines(activeMatrix);
@@ -454,6 +459,52 @@
     });
   }
 
+  // ── Draw Rank-Nullity Theorem Lines (when det = 0) ─────────────────────────
+
+  function drawRankNullityLines(matrix) {
+    var nullVec = matrix.nullspace();
+    var colVec = matrix.columnspace();
+    var lineLength = 25;
+
+    ctx.save();
+    // Nullspace (ker A) - dashed red line: vectors on this line are compressed to zero
+    if (nullVec) {
+      var p1 = worldToScreen(-nullVec.x * lineLength, -nullVec.y * lineLength);
+      var p2 = worldToScreen(nullVec.x * lineLength, nullVec.y * lineLength);
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+
+      var labelPos = worldToScreen(nullVec.x * 2.5, nullVec.y * 2.5);
+      ctx.fillStyle = '#f87171';
+      ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+      ctx.fillText('Kernel / Nullspace (Ax = 0)', labelPos.x + 8, labelPos.y - 8);
+    }
+
+    // Column Space (im A) - solid blue line: all transformed outputs land here
+    if (colVec && colVec.magnitudeSq() > Engine.EPSILON) {
+      var q1 = worldToScreen(-colVec.x * lineLength, -colVec.y * lineLength);
+      var q2 = worldToScreen(colVec.x * lineLength, colVec.y * lineLength);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(q1.x, q1.y);
+      ctx.lineTo(q2.x, q2.y);
+      ctx.stroke();
+
+      var colLabelPos = worldToScreen(colVec.x * 3.5, colVec.y * 3.5);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+      ctx.fillText('Column Space / Range (All outputs)', colLabelPos.x + 8, colLabelPos.y + 16);
+    }
+    ctx.restore();
+  }
+
   // ── Draw Eigen Hunter (Mode 2) ────────────────────────────────────────────
 
   function drawEigenHunter(matrix) {
@@ -605,6 +656,22 @@
     drawArrow(o.x, o.y, projPos.x, projPos.y, '#f59e0b', 3);
     ctx.restore();
 
+    // Draw Angle Arc between u and v
+    var angleU = state.vecU.angle();
+    var angleV = state.vecV.angle();
+    var diff = angleV - angleU;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    var arcRad = 28;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, arcRad, -angleU, -(angleU + diff), diff < 0);
+    ctx.stroke();
+    ctx.restore();
+
     updateVectorSandboxTelemetry();
   }
 
@@ -747,6 +814,22 @@
 
     // Matrix Multiplication Comparison (Mode 3)
     updateMultComparison();
+
+    // Rank-Nullity Theorem Card sync (when det = 0)
+    var nullCard = $('nullspace-card');
+    if (nullCard) {
+      var isSingular = Math.abs(det) < Engine.EPSILON;
+      nullCard.classList.toggle('hidden', !isSingular);
+      if (isSingular) {
+        var nVec = m.nullspace();
+        var cVec = m.columnspace();
+        var nText = nVec ? '[' + nVec.x.toFixed(2) + ', ' + nVec.y.toFixed(2) + ']ᵀ' : '[0, 0]ᵀ';
+        var cText = cVec ? '[' + cVec.x.toFixed(2) + ', ' + cVec.y.toFixed(2) + ']ᵀ' : '[0, 0]ᵀ';
+        $('nullspace-basis-text').innerHTML = '<strong>Kernel ker(A):</strong> Basis = ' + nText + ' (compressed to origin)';
+        $('columnspace-basis-text').innerHTML = '<strong>Range im(A):</strong> Basis = ' + cText + ' (1D line)';
+      }
+    }
+
     updateUrlHash();
   }
 
@@ -1018,10 +1101,21 @@
       inp.addEventListener('input', readVectorInputs);
     });
 
-    // Presets
+    // Preset buttons
     document.querySelectorAll('.btn-preset[data-preset]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         applyPreset(this.getAttribute('data-preset'));
+      });
+    });
+
+    // Matrix power stepper buttons (Power iteration)
+    document.querySelectorAll('.btn-power[data-power]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var p = parseInt(this.getAttribute('data-power'), 10);
+        document.querySelectorAll('.btn-power').forEach(function (b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        var powered = state.matrix.power(p);
+        animController.start(state.matrix, powered, 500);
       });
     });
 

@@ -197,6 +197,41 @@
     return new Matrix2x2(this.a, this.c, this.b, this.d);
   };
 
+  Matrix2x2.prototype.power = function (k) {
+    if (k <= 0) return Matrix2x2.identity();
+    var res = this.clone();
+    for (var i = 1; i < k; i++) {
+      res = res.multiply(this);
+    }
+    return res;
+  };
+
+  // Fundamental Theorem: Kernel / Nullspace ker(A) = {x : Ax = 0}
+  Matrix2x2.prototype.nullspace = function () {
+    var det = this.determinant();
+    if (Math.abs(det) > EPSILON) return null; // Trivial {0}
+
+    var v = null;
+    if (this.a * this.a + this.b * this.b > EPSILON) {
+      v = new Vector2D(-this.b, this.a).normalize();
+    } else if (this.c * this.c + this.d * this.d > EPSILON) {
+      v = new Vector2D(-this.d, this.c).normalize();
+    } else {
+      // Entire 2D space is nullspace (Zero matrix)
+      v = new Vector2D(1, 0);
+    }
+    return v;
+  };
+
+  // Column space (Range / Im(A))
+  Matrix2x2.prototype.columnspace = function () {
+    var col1 = this.getCol1();
+    var col2 = this.getCol2();
+    if (col1.magnitudeSq() > EPSILON) return col1.normalize();
+    if (col2.magnitudeSq() > EPSILON) return col2.normalize();
+    return new Vector2D(0, 0);
+  };
+
   Matrix2x2.lerp = function (m1, m2, t) {
     return new Matrix2x2(
       m1.a + (m2.a - m1.a) * t,
