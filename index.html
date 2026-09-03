@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TensorForge — Geometric Linear Algebra Sandbox</title>
+  <meta name="description" content="An interactive 2D geometric linear algebra playground. Visualize matrix transformations, determinants, and eigensystems in real-time. Zero dependencies, 100% offline-ready.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-wrapper">
+
+    <!-- ── Application Header ─────────────────────────────────────────────── -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-icon">📐</div>
+        <div>
+          <h1 class="brand-title">TensorForge</h1>
+        </div>
+        <span class="brand-badge">Linear Algebra</span>
+      </div>
+
+      <!-- Mode Switcher Tabs -->
+      <nav class="mode-selector" aria-label="Operation Modes">
+        <button class="mode-btn active" data-mode="transform">
+          <span>🌀</span> 2D Transform
+        </button>
+        <button class="mode-btn" data-mode="eigen">
+          <span>⚡</span> Eigen Analysis
+        </button>
+        <button class="mode-btn" data-mode="mult">
+          <span>✖</span> Matrix Chain (A×B)
+        </button>
+        <button class="mode-btn" data-mode="vectors">
+          <span>🎯</span> Vector Sandbox
+        </button>
+      </nav>
+
+      <!-- Global Actions -->
+      <div class="header-actions">
+        <button id="btn-reset" class="btn-icon-action" title="Reset Matrix to Identity">↺</button>
+        <button id="btn-recenter" class="btn-icon-action" title="Recenter Viewport">⌖</button>
+      </div>
+    </header>
+
+    <!-- ── Main Workspace ─────────────────────────────────────────────────── -->
+    <main class="main-workspace">
+
+      <!-- Left Sidebar: Control Deck -->
+      <aside class="control-sidebar">
+
+        <!-- 2x2 Matrix Input Deck -->
+        <section class="sidebar-section">
+          <div class="section-header">
+            <h2 class="section-title"><span>🔲</span> Transformation Matrix</h2>
+          </div>
+
+          <div class="matrix-container">
+            <span class="matrix-label">A =</span>
+            <div class="matrix-bracket">
+              <div class="matrix-cell-group">
+                <span class="cell-label">col 1 (î)</span>
+                <input type="number" id="mat-a" class="matrix-input" step="0.1" value="1.50">
+                <input type="number" id="mat-c" class="matrix-input" step="0.1" value="0.50">
+              </div>
+              <div class="matrix-cell-group">
+                <span class="cell-label">col 2 (ĵ)</span>
+                <input type="number" id="mat-b" class="matrix-input" step="0.1" value="0.50">
+                <input type="number" id="mat-d" class="matrix-input" step="0.1" value="1.20">
+              </div>
+            </div>
+          </div>
+
+          <!-- Basis Vector Chips -->
+          <div class="basis-legend">
+            <div class="basis-chip">
+              <span class="basis-dot dot-i"></span>
+              <span>î = [a, c]ᵀ</span>
+            </div>
+            <div class="basis-chip">
+              <span class="basis-dot dot-j"></span>
+              <span>ĵ = [b, d]ᵀ</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Dynamic Controls (Rotation & Shear) -->
+        <section class="sidebar-section">
+          <div class="section-header">
+            <h2 class="section-title"><span>🎛</span> Continuous Controls</h2>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Rotation Angle (θ)</span>
+              <span id="val-rotation" class="slider-val">0°</span>
+            </div>
+            <input type="range" id="slider-rotation" class="custom-slider" min="-180" max="180" value="0" step="1">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-header">
+              <span>Horizontal Shear (k)</span>
+              <span id="val-shear" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider-shear" class="custom-slider" min="-3" max="3" value="0" step="0.1">
+          </div>
+        </section>
+
+        <!-- Presets -->
+        <section class="sidebar-section">
+          <div class="section-header">
+            <h2 class="section-title"><span>✨</span> Presets</h2>
+          </div>
+
+          <div class="preset-grid">
+            <button class="btn-preset" data-preset="identity">Identity</button>
+            <button class="btn-preset" data-preset="rotate45">Rotate 45°</button>
+            <button class="btn-preset" data-preset="rotate90">Rotate 90°</button>
+            <button class="btn-preset" data-preset="shearX">Shear X</button>
+            <button class="btn-preset" data-preset="shearY">Shear Y</button>
+            <button class="btn-preset" data-preset="scaleUp">Scale</button>
+            <button class="btn-preset" data-preset="reflectX">Reflect X</button>
+            <button class="btn-preset" data-preset="reflectY">Reflect Y</button>
+            <button class="btn-preset" data-preset="singular">Singular (0)</button>
+          </div>
+        </section>
+
+        <!-- Real-Time Math Telemetry -->
+        <section class="sidebar-section">
+          <div class="section-header">
+            <h2 class="section-title"><span>📊</span> Mathematical Invariants</h2>
+          </div>
+
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <span class="telemetry-label">Determinant</span>
+              <span id="telemetry-det" class="telemetry-value">1.55</span>
+              <span id="badge-det" class="telemetry-badge badge-det-pos">Orientation Preserved</span>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">Trace (tr)</span>
+              <span id="telemetry-trace" class="telemetry-value">2.70</span>
+              <span class="telemetry-badge badge-det-pos">a + d</span>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">Matrix Rank</span>
+              <span id="telemetry-rank" class="telemetry-value">2</span>
+              <span class="telemetry-badge badge-det-pos">Full Rank</span>
+            </div>
+            <div class="telemetry-card">
+              <span class="telemetry-label">Area Factor</span>
+              <span id="telemetry-area" class="telemetry-value">|det(A)|</span>
+              <span class="telemetry-badge badge-det-pos">Parallelogram</span>
+            </div>
+          </div>
+
+          <!-- Eigensystem Card -->
+          <div class="eigen-details">
+            <div class="section-title" style="margin-bottom: 0.2rem;">Eigenvalues (det(A - λI) = 0)</div>
+            <div class="eigen-row">
+              <span class="eigen-tag"><span class="eigen-dot-1"></span> Primary Root</span>
+              <span id="eigen-val-1">λ₁ = 1.86</span>
+            </div>
+            <div class="eigen-row">
+              <span class="eigen-tag"><span class="eigen-dot-2"></span> Secondary Root</span>
+              <span id="eigen-val-2">λ₂ = 0.84</span>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+      <!-- Central Canvas Viewport -->
+      <section class="canvas-viewport">
+        <canvas id="matrix-canvas"></canvas>
+
+        <!-- Floating HUD Pill -->
+        <div class="canvas-hud">
+          <div id="hud-coords" class="hud-pill">Cursor: <strong>[0.00, 0.00]</strong></div>
+          <div class="hud-pill">Tip: <strong>Drag arrows</strong> or hold <strong>Shift</strong> to snap</div>
+        </div>
+
+        <!-- Floating Zoom & Pan Controls -->
+        <div class="canvas-controls-floating">
+          <button id="btn-zoom-in" class="hud-btn" title="Zoom In">+</button>
+          <button id="btn-zoom-out" class="hud-btn" title="Zoom Out">−</button>
+        </div>
+
+        <!-- Matrix Multiplication Stepper Drawer (Mode 3) -->
+        <div id="mult-drawer" class="multiplication-drawer">
+          <div class="mult-chain">
+            <span>Composition:</span>
+            <div class="mult-matrix-mini">A [1.5, 0.5]</div>
+            <span>×</span>
+            <div class="mult-matrix-mini">B [Rot 37°]</div>
+            <button id="btn-swap-mult" class="btn-preset" style="padding: 0.3rem 0.6rem;">Order: AB</button>
+          </div>
+
+          <div class="mult-slider-container">
+            <div class="slider-header">
+              <span>Interpolation Step (t)</span>
+              <span id="val-mult-t" class="slider-val">0.00</span>
+            </div>
+            <input type="range" id="slider-mult" class="custom-slider" min="0" max="1" value="0" step="0.01">
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
