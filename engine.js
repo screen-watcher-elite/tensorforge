@@ -78,6 +78,19 @@
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  Vector2D.prototype.rejectFrom = function (v) {
+    var proj = this.projectOnto(v);
+    return this.sub(proj);
+  };
+
+  Vector2D.prototype.polar = function () {
+    var r = this.magnitude();
+    var rad = this.angle();
+    var deg = (rad * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    return { r: r, thetaDeg: deg, thetaRad: rad };
+  };
+
   Vector2D.lerp = function (a, b, t) {
     return new Vector2D(
       a.x + (b.x - a.x) * t,

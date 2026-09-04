@@ -53,6 +53,9 @@
     magneticSnap: true,
     vecU: new Vector2D(2.0, 1.0),
     vecV: new Vector2D(1.0, 2.0),
+    showDecomp: true,
+    showParallelogram: true,
+    snapToGrid: true,
 
     // 3D Space State
     camYaw: 25,
@@ -791,20 +794,124 @@
   // ── Vector Sandbox (Mode 4) ───────────────────────────────────────────────
 
   function drawVectorSandbox() {
+    drawBackgroundGrid();
+    drawAxes();
+
     var o = worldToScreen(0, 0);
     var uPos = worldToScreen(state.vecU.x, state.vecU.y);
     var vPos = worldToScreen(state.vecV.x, state.vecV.y);
 
-    drawAxes();
+    // 1. Shaded Parallelogram (Span & 2D Cross Product Area)
+    if (state.showParallelogram) {
+      var crossVal = state.vecU.cross(state.vecV);
+      var sumVec = state.vecU.add(state.vecV);
+      var sPos = worldToScreen(sumVec.x, sumVec.y);
 
-    drawArrow(o.x, o.y, uPos.x, uPos.y, '#f43f5e', 2.5);
-    drawVectorHandle(uPos.x, uPos.y, '#f43f5e', 'u', state.hoverTarget === 'u');
-    drawVectorLabel('u [' + state.vecU.x.toFixed(1) + ', ' + state.vecU.y.toFixed(1) + ']', uPos.x, uPos.y, '#f43f5e', state.vecU.angle());
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(uPos.x, uPos.y);
+      ctx.lineTo(sPos.x, sPos.y);
+      ctx.lineTo(vPos.x, vPos.y);
+      ctx.closePath();
+      ctx.fillStyle = crossVal >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(168, 85, 247, 0.12)';
+      ctx.fill();
+      ctx.strokeStyle = crossVal >= 0 ? 'rgba(16, 185, 129, 0.35)' : 'rgba(168, 85, 247, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
 
-    drawArrow(o.x, o.y, vPos.x, vPos.y, '#06b6d4', 2.5);
-    drawVectorHandle(vPos.x, vPos.y, '#06b6d4', 'v_sandbox', state.hoverTarget === 'v_sandbox');
-    drawVectorLabel('v [' + state.vecV.x.toFixed(1) + ', ' + state.vecV.y.toFixed(1) + ']', vPos.x, vPos.y, '#06b6d4', state.vecV.angle());
+      // Parallelogram center area text badge
+      if (Math.abs(crossVal) > 0.1) {
+        var cX = (o.x + sPos.x) / 2;
+        var cY = (o.y + sPos.y) / 2;
+        ctx.fillStyle = crossVal >= 0 ? '#34d399' : '#c084fc';
+        ctx.font = '600 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Area = ' + Math.abs(crossVal).toFixed(2), cX, cY);
+      }
+      ctx.restore();
+    }
 
+    // 2. Translucent Sector Wedge & Arc for Angle
+    var angleU = state.vecU.angle();
+    var angleV = state.vecV.angle();
+    var diff = angleV - angleU;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    var arcRad = 36;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.arc(o.x, o.y, arcRad, -angleU, -(angleU + diff), diff < 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(o.x, o.y, arcRad, -angleU, -(angleU + diff), diff < 0);
+    ctx.stroke();
+
+    var midAngle = -angleU - diff / 2;
+    var tx = o.x + Math.cos(midAngle) * (arcRad + 14);
+    var ty = o.y + Math.sin(midAngle) * (arcRad + 14);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText((Math.abs(diff * 180 / Math.PI)).toFixed(1) + '°', tx, ty);
+    ctx.restore();
+
+    // 3. Orthogonal Decomposition (v = v∥ + v⊥)
+    if (state.showDecomp) {
+      var projParallel = state.vecV.projectOnto(state.vecU);
+      var projPerp = state.vecV.rejectFrom(state.vecU);
+      var pPos = worldToScreen(projParallel.x, projParallel.y);
+
+      // Parallel projection arrow v∥ along u
+      if (projParallel.magnitude() > 0.05) {
+        drawArrow(o.x, o.y, pPos.x, pPos.y, '#f59e0b', 3.2);
+        drawVectorLabel('v∥ [' + projParallel.x.toFixed(1) + ', ' + projParallel.y.toFixed(1) + ']', pPos.x, pPos.y, '#f59e0b', projParallel.angle());
+      }
+
+      // Orthogonal rejection line v⊥ from pPos to vPos
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(pPos.x, pPos.y);
+      ctx.lineTo(vPos.x, vPos.y);
+      ctx.stroke();
+
+      // Right angle marker
+      if (projParallel.magnitude() > 0.4 && projPerp.magnitude() > 0.4) {
+        var uDir = state.vecU.normalize();
+        var perpDir = projPerp.normalize();
+        var mSize = 8;
+        var m1x = pPos.x + perpDir.x * mSize;
+        var m1y = pPos.y - perpDir.y * mSize;
+        var m2x = m1x - uDir.x * mSize;
+        var m2y = m1y + uDir.y * mSize;
+        var m3x = pPos.x - uDir.x * mSize;
+        var m3y = pPos.y + uDir.y * mSize;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(m1x, m1y);
+        ctx.lineTo(m2x, m2y);
+        ctx.lineTo(m3x, m3y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 4. Parallelogram Addition Dashed Guides & Sum Vector u + v
     var sum = state.vecU.add(state.vecV);
     var sumPos = worldToScreen(sum.x, sum.y);
 
@@ -819,32 +926,14 @@
     drawArrow(o.x, o.y, sumPos.x, sumPos.y, '#10b981', 2);
     drawVectorLabel('u+v [' + sum.x.toFixed(1) + ', ' + sum.y.toFixed(1) + ']', sumPos.x, sumPos.y, '#10b981', sum.angle());
 
-    var proj = state.vecU.projectOnto(state.vecV);
-    var projPos = worldToScreen(proj.x, proj.y);
+    // 5. Primary Vectors u & v
+    drawArrow(o.x, o.y, uPos.x, uPos.y, '#f43f5e', 2.8);
+    drawVectorHandle(uPos.x, uPos.y, '#f43f5e', 'u', state.hoverTarget === 'u');
+    drawVectorLabel('u [' + state.vecU.x.toFixed(1) + ', ' + state.vecU.y.toFixed(1) + ']', uPos.x, uPos.y, '#f43f5e', state.vecU.angle());
 
-    ctx.save();
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = '#f59e0b';
-    ctx.beginPath();
-    ctx.moveTo(uPos.x, uPos.y); ctx.lineTo(projPos.x, projPos.y);
-    ctx.stroke();
-    drawArrow(o.x, o.y, projPos.x, projPos.y, '#f59e0b', 3);
-    ctx.restore();
-
-    var angleU = state.vecU.angle();
-    var angleV = state.vecV.angle();
-    var diff = angleV - angleU;
-    while (diff < -Math.PI) diff += 2 * Math.PI;
-    while (diff > Math.PI) diff -= 2 * Math.PI;
-    var arcRad = 28;
-
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(o.x, o.y, arcRad, -angleU, -(angleU + diff), diff < 0);
-    ctx.stroke();
-    ctx.restore();
+    drawArrow(o.x, o.y, vPos.x, vPos.y, '#06b6d4', 2.8);
+    drawVectorHandle(vPos.x, vPos.y, '#06b6d4', 'v_sandbox', state.hoverTarget === 'v_sandbox');
+    drawVectorLabel('v [' + state.vecV.x.toFixed(1) + ', ' + state.vecV.y.toFixed(1) + ']', vPos.x, vPos.y, '#06b6d4', state.vecV.angle());
 
     updateVectorSandboxTelemetry();
   }
@@ -856,10 +945,33 @@
     var cosTheta = (magU > 0 && magV > 0) ? Math.max(-1, Math.min(1, dot / (magU * magV))) : 1;
     var angleDeg = (Math.acos(cosTheta) * 180) / Math.PI;
 
-    valDotProduct.textContent = dot.toFixed(2);
-    valMagU.textContent = magU.toFixed(2);
-    valMagV.textContent = magV.toFixed(2);
-    valVectorAngle.textContent = angleDeg.toFixed(1) + '°';
+    // Vector Arithmetic sync
+    var sum = state.vecU.add(state.vecV);
+    var diff = state.vecU.sub(state.vecV);
+    var valVecSum = $('val-vec-sum');
+    var valVecSumMag = $('val-vec-sum-mag');
+    var valVecDiff = $('val-vec-diff');
+    var valVecDiffMag = $('val-vec-diff-mag');
+    if (valVecSum) valVecSum.textContent = '[ ' + sum.x.toFixed(2) + ', ' + sum.y.toFixed(2) + ' ]';
+    if (valVecSumMag) valVecSumMag.textContent = '||u+v|| = ' + sum.magnitude().toFixed(2);
+    if (valVecDiff) valVecDiff.textContent = '[ ' + diff.x.toFixed(2) + ', ' + diff.y.toFixed(2) + ' ]';
+    if (valVecDiffMag) valVecDiffMag.textContent = '||u-v|| = ' + diff.magnitude().toFixed(2);
+
+    // Polar coordinates
+    var polU = state.vecU.polar();
+    var polV = state.vecV.polar();
+    var elPolU = $('val-polar-u');
+    var elPolV = $('val-polar-v');
+    if (elPolU) elPolU.textContent = 'r=' + polU.r.toFixed(2) + ', θ=' + polU.thetaDeg.toFixed(1) + '°';
+    if (elPolV) elPolV.textContent = 'r=' + polV.r.toFixed(2) + ', θ=' + polV.thetaDeg.toFixed(1) + '°';
+
+    // Dot product & Angle
+    if (valDotProduct) valDotProduct.textContent = dot.toFixed(2);
+    if (valMagU) valMagU.textContent = magU.toFixed(2);
+    if (valMagV) valMagV.textContent = magV.toFixed(2);
+    if (valVectorAngle) valVectorAngle.textContent = angleDeg.toFixed(1) + '°';
+    var badgeCos = $('badge-vector-cos');
+    if (badgeCos) badgeCos.textContent = 'cos θ = ' + cosTheta.toFixed(2);
 
     if (Math.abs(dot) < Engine.EPSILON) {
       badgeDotAngle.textContent = 'Orthogonal (90°)';
@@ -870,6 +982,87 @@
     } else {
       badgeDotAngle.textContent = 'Obtuse Angle (>90°)';
       badgeDotAngle.className = 'telemetry-badge badge-det-neg';
+    }
+
+    // Gram-Schmidt Orthogonal Decomposition
+    var projParallel = state.vecV.projectOnto(state.vecU);
+    var projPerp = state.vecV.rejectFrom(state.vecU);
+    var elProjPar = $('val-vec-proj-parallel');
+    var elProjPerp = $('val-vec-proj-perp');
+    var elProjDot = $('val-vec-proj-dot');
+    if (elProjPar) elProjPar.textContent = '[ ' + projParallel.x.toFixed(2) + ', ' + projParallel.y.toFixed(2) + ' ]';
+    if (elProjPerp) elProjPerp.textContent = '[ ' + projPerp.x.toFixed(2) + ', ' + projPerp.y.toFixed(2) + ' ]';
+    var decompDot = projParallel.dot(projPerp);
+    if (elProjDot) elProjDot.textContent = Math.abs(decompDot) < 1e-6 ? '0.00 ✓ (Orthogonal)' : decompDot.toFixed(2);
+
+    // Fundamental Inequalities
+    // 1. Cauchy-Schwarz: |u·v| <= ||u|| ||v||
+    var absDot = Math.abs(dot);
+    var prodMag = magU * magV;
+    var elCS = $('val-cauchy-schwarz');
+    var badgeCS = $('badge-cauchy');
+    var ratioCS = $('val-cauchy-ratio');
+    if (elCS) elCS.textContent = absDot.toFixed(2) + ' ≤ ' + prodMag.toFixed(2);
+    var satRatio = prodMag > 0 ? (absDot / prodMag) * 100 : 100;
+    if (ratioCS) ratioCS.textContent = satRatio.toFixed(1) + '% Saturation';
+    if (badgeCS) {
+      if (Math.abs(absDot - prodMag) < 0.05) {
+        badgeCS.textContent = 'Collinear Equality (= 100%)';
+        badgeCS.className = 'telemetry-badge badge-det-pos';
+      } else {
+        badgeCS.textContent = 'Strict Inequality (<)';
+        badgeCS.className = 'telemetry-badge badge-det-pos';
+      }
+    }
+
+    // 2. Triangle Inequality: ||u+v|| <= ||u|| + ||v||
+    var sumMag = sum.magnitude();
+    var sumIndiv = magU + magV;
+    var elTri = $('val-triangle-ineq');
+    var badgeTri = $('badge-triangle');
+    var diffTri = $('val-triangle-diff');
+    if (elTri) elTri.textContent = sumMag.toFixed(2) + ' ≤ ' + sumIndiv.toFixed(2);
+    if (diffTri) diffTri.textContent = 'Deficit: ' + (sumIndiv - sumMag).toFixed(2);
+    if (badgeTri) {
+      if (Math.abs(sumMag - sumIndiv) < 0.05) {
+        badgeTri.textContent = 'Degenerate Equality (=)';
+        badgeTri.className = 'telemetry-badge badge-det-pos';
+      } else {
+        badgeTri.textContent = 'Triangle Inequality Holds';
+        badgeTri.className = 'telemetry-badge badge-det-pos';
+      }
+    }
+
+    // 2D Cross Product & Span Area
+    var cross = state.vecU.cross(state.vecV);
+    var elCross = $('val-vec-cross');
+    var badgeOrient = $('badge-vec-orientation');
+    var elSpanDim = $('val-vec-span-dim');
+    var badgeIndep = $('badge-vec-independent');
+    if (elCross) elCross.textContent = Math.abs(cross).toFixed(2);
+    if (badgeOrient) {
+      if (Math.abs(cross) < 1e-4) {
+        badgeOrient.textContent = 'Zero Area (Collinear)';
+        badgeOrient.className = 'telemetry-badge badge-det-zero';
+      } else if (cross > 0) {
+        badgeOrient.textContent = 'Counter-Clockwise (+)';
+        badgeOrient.className = 'telemetry-badge badge-det-pos';
+      } else {
+        badgeOrient.textContent = 'Clockwise (-)';
+        badgeOrient.className = 'telemetry-badge badge-det-neg';
+      }
+    }
+    if (elSpanDim) {
+      elSpanDim.textContent = Math.abs(cross) < 1e-4 ? 'dim = 1' : 'dim = 2';
+    }
+    if (badgeIndep) {
+      if (Math.abs(cross) < 1e-4) {
+        badgeIndep.textContent = 'Linearly Dependent';
+        badgeIndep.className = 'telemetry-badge badge-det-zero';
+      } else {
+        badgeIndep.textContent = 'Linearly Independent';
+        badgeIndep.className = 'telemetry-badge badge-det-pos';
+      }
     }
   }
 
@@ -1720,6 +1913,7 @@
     state.vecU.y = parseFloat(vecUYInput.value) || 0;
     state.vecV.x = parseFloat(vecVXInput.value) || 0;
     state.vecV.y = parseFloat(vecVYInput.value) || 0;
+    updateVectorSandboxTelemetry();
     render();
   }
 
@@ -1876,11 +2070,25 @@
       updateTelemetry();
       render();
     } else if (state.draggingTarget === 'u') {
+      if (state.snapToGrid) {
+        var rx = Math.round(sx * 2) / 2;
+        var ry = Math.round(sy * 2) / 2;
+        if (Math.hypot(sx - rx, sy - ry) < 0.2) { sx = rx; sy = ry; }
+      }
       state.vecU.x = sx; state.vecU.y = sy;
-      vecUXInput.value = sx.toFixed(1); vecUYInput.value = sy.toFixed(1); render();
+      vecUXInput.value = sx.toFixed(1); vecUYInput.value = sy.toFixed(1);
+      updateVectorSandboxTelemetry();
+      render();
     } else if (state.draggingTarget === 'v_sandbox') {
+      if (state.snapToGrid) {
+        var rx = Math.round(sx * 2) / 2;
+        var ry = Math.round(sy * 2) / 2;
+        if (Math.hypot(sx - rx, sy - ry) < 0.2) { sx = rx; sy = ry; }
+      }
       state.vecV.x = sx; state.vecV.y = sy;
-      vecVXInput.value = sx.toFixed(1); vecVYInput.value = sy.toFixed(1); render();
+      vecVXInput.value = sx.toFixed(1); vecVYInput.value = sy.toFixed(1);
+      updateVectorSandboxTelemetry();
+      render();
     } else if (state.draggingTarget === 'pan') {
       state.panX = state.dragStartPan.x + (pos.x - state.dragStartMouse.x);
       state.panY = state.dragStartPan.y + (pos.y - state.dragStartMouse.y);
@@ -2730,12 +2938,23 @@
       });
     });
 
-    // Vector Sandbox quick helpers
+    // Vector Sandbox quick helpers & controls
     var btnNormU = $('btn-normalize-u');
     if (btnNormU) {
       btnNormU.addEventListener('click', function () {
         state.vecU = state.vecU.normalize();
         vecUXInput.value = state.vecU.x.toFixed(1); vecUYInput.value = state.vecU.y.toFixed(1);
+        updateVectorSandboxTelemetry();
+        render();
+      });
+    }
+
+    var btnNormV = $('btn-normalize-v');
+    if (btnNormV) {
+      btnNormV.addEventListener('click', function () {
+        state.vecV = state.vecV.normalize();
+        vecVXInput.value = state.vecV.x.toFixed(1); vecVYInput.value = state.vecV.y.toFixed(1);
+        updateVectorSandboxTelemetry();
         render();
       });
     }
@@ -2743,9 +2962,50 @@
     var btnOrthoV = $('btn-orthogonalize-v');
     if (btnOrthoV) {
       btnOrthoV.addEventListener('click', function () {
-        state.vecV = state.vecV.sub(state.vecV.projectOnto(state.vecU));
+        state.vecV = state.vecV.rejectFrom(state.vecU);
         vecVXInput.value = state.vecV.x.toFixed(1); vecVYInput.value = state.vecV.y.toFixed(1);
+        updateVectorSandboxTelemetry();
         render();
+      });
+    }
+
+    var btnApplyGS = $('btn-apply-gram-schmidt');
+    if (btnApplyGS) {
+      btnApplyGS.addEventListener('click', function () {
+        state.vecU = state.vecU.normalize();
+        var vPerp = state.vecV.rejectFrom(state.vecU);
+        state.vecV = vPerp.normalize();
+        vecUXInput.value = state.vecU.x.toFixed(1); vecUYInput.value = state.vecU.y.toFixed(1);
+        vecVXInput.value = state.vecV.x.toFixed(1); vecVYInput.value = state.vecV.y.toFixed(1);
+        updateVectorSandboxTelemetry();
+        render();
+      });
+    }
+
+    var btnToggleDecomp = $('btn-toggle-decomp');
+    if (btnToggleDecomp) {
+      btnToggleDecomp.addEventListener('click', function () {
+        state.showDecomp = !state.showDecomp;
+        this.classList.toggle('active', state.showDecomp);
+        render();
+      });
+    }
+
+    var btnToggleParallelogram = $('btn-toggle-parallelogram');
+    if (btnToggleParallelogram) {
+      btnToggleParallelogram.addEventListener('click', function () {
+        state.showParallelogram = !state.showParallelogram;
+        this.classList.toggle('active', state.showParallelogram);
+        render();
+      });
+    }
+
+    var btnToggleVSnap = $('btn-toggle-vsnap');
+    if (btnToggleVSnap) {
+      btnToggleVSnap.addEventListener('click', function () {
+        state.snapToGrid = !state.snapToGrid;
+        this.textContent = state.snapToGrid ? 'Snap: Grid' : 'Snap: Free';
+        this.style.color = state.snapToGrid ? '#38bdf8' : 'var(--text-muted)';
       });
     }
 

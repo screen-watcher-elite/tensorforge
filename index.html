@@ -503,6 +503,7 @@
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>🎯</span> Vectors u and v</h2>
+              <button id="btn-toggle-vsnap" class="btn-micro" title="Toggle integer snapping">Snap: Grid</button>
             </div>
             <div class="vector-inputs-grid">
               <div class="vec-input-card">
@@ -511,6 +512,7 @@
                   <span>x:</span><input type="number" id="vec-u-x" class="matrix-input" step="0.5" value="2.0">
                   <span>y:</span><input type="number" id="vec-u-y" class="matrix-input" step="0.5" value="1.0">
                 </div>
+                <div class="vec-polar-readout" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Polar: <span id="val-polar-u" style="font-family: var(--font-mono); color: var(--vec-i);">r=2.24, θ=26.6°</span></div>
               </div>
               <div class="vec-input-card">
                 <span class="telemetry-label" style="color: var(--vec-j)">Vector v</span>
@@ -518,6 +520,7 @@
                   <span>x:</span><input type="number" id="vec-v-x" class="matrix-input" step="0.5" value="1.0">
                   <span>y:</span><input type="number" id="vec-v-y" class="matrix-input" step="0.5" value="2.0">
                 </div>
+                <div class="vec-polar-readout" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">Polar: <span id="val-polar-v" style="font-family: var(--font-mono); color: var(--vec-j);">r=2.24, θ=63.4°</span></div>
               </div>
             </div>
 
@@ -533,8 +536,11 @@
 
             <!-- Vector Operations Helper Bar -->
             <div class="shape-selector" style="margin-top: 0.5rem;">
-              <button id="btn-normalize-u" class="btn-shape">Normalize u (û)</button>
-              <button id="btn-orthogonalize-v" class="btn-shape">Make v ⊥ u (Gram-Schmidt)</button>
+              <button id="btn-normalize-u" class="btn-shape">û = u / ||u||</button>
+              <button id="btn-normalize-v" class="btn-shape">v̂ = v / ||v||</button>
+              <button id="btn-orthogonalize-v" class="btn-shape">Gram-Schmidt (v ⊥ u)</button>
+              <button id="btn-toggle-decomp" class="btn-shape active" style="color: #f59e0b;">v∥ &amp; v⊥ Decomp</button>
+              <button id="btn-toggle-parallelogram" class="btn-shape active" style="color: #10b981;">Span Area (u × v)</button>
             </div>
           </section>
 
@@ -557,9 +563,63 @@
             </div>
           </section>
 
+          <!-- Gram-Schmidt Orthogonal Decomposition -->
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>📐</span> Dot Product & Projection</h2>
+              <h2 class="section-title"><span>📐</span> Orthogonal Decomposition (v = v∥ + v⊥)</h2>
+              <button id="btn-apply-gram-schmidt" class="btn-micro" title="Orthonormalize basis">Orthonormalize</button>
+            </div>
+            <div class="math-formula-box">
+              <div class="formula-title">v = proj_u(v) + (v - proj_u(v))</div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.35rem;">
+                <span style="color: #f59e0b;">Parallel Component v∥:</span>
+                <strong id="val-vec-proj-parallel" style="font-family: var(--font-mono); color: #f59e0b;">[ 1.60, 0.80 ]</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.2rem;">
+                <span style="color: #38bdf8;">Orthogonal Rejection v⊥:</span>
+                <strong id="val-vec-proj-perp" style="font-family: var(--font-mono); color: #38bdf8;">[ -0.60, 1.20 ]</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.2rem;">
+                <span>v∥ · v⊥:</span>
+                <strong id="val-vec-proj-dot" style="font-family: var(--font-mono); color: #10b981;">0.00 ✓ (Orthogonal)</strong>
+              </div>
+            </div>
+          </section>
+
+          <!-- Fundamental Vector Inequalities -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚖️</span> Fundamental Vector Inequalities</h2>
+            </div>
+            <div class="math-formula-box">
+              <div class="formula-title">Cauchy-Schwarz: |u · v| ≤ ||u|| ||v||</div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.35rem;">
+                <span>|u · v| vs ||u||·||v||:</span>
+                <strong id="val-cauchy-schwarz" style="font-family: var(--font-mono); color: #a855f7;">4.00 ≤ 5.00</strong>
+              </div>
+              <div style="margin-top: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
+                <span id="badge-cauchy" class="telemetry-badge badge-det-pos">Strict Inequality (&lt;)</span>
+                <span id="val-cauchy-ratio" style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">80.0% Saturation</span>
+              </div>
+            </div>
+
+            <div class="math-formula-box" style="margin-top: 0.5rem;">
+              <div class="formula-title">Triangle Inequality: ||u + v|| ≤ ||u|| + ||v||</div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.35rem;">
+                <span>||u+v|| vs ||u||+||v||:</span>
+                <strong id="val-triangle-ineq" style="font-family: var(--font-mono); color: #ec4899;">4.24 ≤ 4.47</strong>
+              </div>
+              <div style="margin-top: 0.35rem; display: flex; align-items: center; justify-content: space-between;">
+                <span id="badge-triangle" class="telemetry-badge badge-det-pos">Triangle Inequality Holds</span>
+                <span id="val-triangle-diff" style="font-size: 0.78rem; font-family: var(--font-mono); color: var(--text-muted);">Deficit: 0.23</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Dot Product & Angles -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Dot Product &amp; Projection</h2>
             </div>
             <div class="telemetry-grid">
               <div class="telemetry-card">
@@ -570,7 +630,7 @@
               <div class="telemetry-card">
                 <span class="telemetry-label">Angle (θ)</span>
                 <span id="val-vector-angle" class="telemetry-value">36.9°</span>
-                <span class="telemetry-badge badge-det-pos">cos θ = 0.80</span>
+                <span id="badge-vector-cos" class="telemetry-badge badge-det-pos">cos θ = 0.80</span>
               </div>
               <div class="telemetry-card">
                 <span class="telemetry-label">||u|| (Length)</span>
@@ -579,6 +639,25 @@
               <div class="telemetry-card">
                 <span class="telemetry-label">||v|| (Length)</span>
                 <span id="val-mag-v" class="telemetry-value">2.24</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- 2D Cross Product & Span Area -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🔷</span> 2D Cross Product &amp; Span Area</h2>
+            </div>
+            <div class="telemetry-grid">
+              <div class="telemetry-card">
+                <span class="telemetry-label">u × v (Wedge Area)</span>
+                <span id="val-vec-cross" class="telemetry-value">3.00</span>
+                <span id="badge-vec-orientation" class="telemetry-badge badge-det-pos">Counter-Clockwise (+)</span>
+              </div>
+              <div class="telemetry-card">
+                <span class="telemetry-label">Span Dimension</span>
+                <span id="val-vec-span-dim" class="telemetry-value">dim = 2</span>
+                <span id="badge-vec-independent" class="telemetry-badge badge-det-pos">Linearly Independent</span>
               </div>
             </div>
           </section>
