@@ -616,6 +616,41 @@
     );
   };
 
+  Matrix3x3.prototype.trace = function () {
+    return this.m[0] + this.m[4] + this.m[8];
+  };
+
+  Matrix3x3.prototype.transpose = function () {
+    var m = this.m;
+    return new Matrix3x3([
+      m[0], m[3], m[6],
+      m[1], m[4], m[7],
+      m[2], m[5], m[8]
+    ]);
+  };
+
+  Matrix3x3.prototype.getColumns = function () {
+    var m = this.m;
+    return [
+      new Vector3D(m[0], m[3], m[6]),
+      new Vector3D(m[1], m[4], m[7]),
+      new Vector3D(m[2], m[5], m[8])
+    ];
+  };
+
+  Matrix3x3.prototype.rank = function () {
+    var det = Math.abs(this.determinant());
+    if (det > 1e-4) return 3;
+    var cols = this.getColumns();
+    var c0 = cols[0], c1 = cols[1], c2 = cols[2];
+    var cp1 = c0.cross(c1);
+    var cp2 = c0.cross(c2);
+    var cp3 = c1.cross(c2);
+    if (cp1.magnitude() > 1e-4 || cp2.magnitude() > 1e-4 || cp3.magnitude() > 1e-4) return 2;
+    if (c0.magnitude() > 1e-4 || c1.magnitude() > 1e-4 || c2.magnitude() > 1e-4) return 1;
+    return 0;
+  };
+
   Matrix3x3.rotationX = function (rad) {
     var c = Math.cos(rad), s = Math.sin(rad);
     return new Matrix3x3([
@@ -643,8 +678,8 @@
     ]);
   };
 
-  // 3D Camera Projection (Isometric & Weak Perspective)
-  function project3DTo2D(v3, cameraPitch, cameraYaw, fovScale) {
+  // 3D Camera Projection (Perspective & Orthographic)
+  function project3DTo2D(v3, cameraPitch, cameraYaw, fovScale, isOrthographic) {
     var cosP = Math.cos(cameraPitch), sinP = Math.sin(cameraPitch);
     var cosY = Math.cos(cameraYaw), sinY = Math.sin(cameraYaw);
 
@@ -657,6 +692,15 @@
     var x2 = x1;
     var y2 = y1 * cosP - z1 * sinP;
     var z2 = y1 * sinP + z1 * cosP;
+
+    if (isOrthographic) {
+      var orthoScale = fovScale / 5.2;
+      return {
+        x: x2 * orthoScale,
+        y: y2 * orthoScale,
+        depth: z2
+      };
+    }
 
     // Perspective depth
     var distance = 5.0;

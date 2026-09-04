@@ -66,6 +66,9 @@
     scaleX3D: 1.0,
     scaleY3D: 1.0,
     scaleZ3D: 1.0,
+    shearXY3D: 0,
+    camOrthographic: false,
+    autoOrbit3D: false,
     mesh3D: 'cube',
 
     // LossLab State
@@ -553,9 +556,30 @@
   function drawTopRightHUDTag(text) {
     ctx.save();
     ctx.font = '600 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+    var w = ctx.measureText(text).width;
+    var x = viewWidth - 20;
+    var y = 28;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    var pad = 10;
+    var rectX = x - w - pad * 2;
+    var rectY = y - 12;
+    var rectW = w + pad * 2;
+    var rectH = 24;
+    if (ctx.roundRect) {
+      ctx.roundRect(rectX, rectY, rectW, rectH, 6);
+    } else {
+      ctx.rect(rectX, rectY, rectW, rectH);
+    }
+    ctx.fill();
+    ctx.stroke();
+
     ctx.fillStyle = '#c7d2fe';
     ctx.textAlign = 'right';
-    ctx.fillText(text, viewWidth - 24, 32);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x - pad, y);
     ctx.restore();
   }
 
@@ -1068,6 +1092,50 @@
 
   // ── 3D VectorSpace Renderer (Mode 5) ──────────────────────────────────────
 
+  function drawPlanarSubspaceGrid(normal, pitchRad, yawRad, fov, originX, originY) {
+    var arb = Math.abs(normal.z) < 0.9 ? new Vector3D(0, 0, 1) : new Vector3D(1, 0, 0);
+    var u = normal.cross(arb).normalize();
+    var v = normal.cross(u).normalize();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    var extent = 3.2;
+    var step = 0.8;
+    for (var i = -extent; i <= extent; i += step) {
+      var p1 = u.scale(i).add(v.scale(-extent));
+      var p2 = u.scale(i).add(v.scale(extent));
+      var proj1 = project3DTo2D(p1, pitchRad, yawRad, fov, state.camOrthographic);
+      var proj2 = project3DTo2D(p2, pitchRad, yawRad, fov, state.camOrthographic);
+      ctx.moveTo(originX + proj1.x, originY + proj1.y);
+      ctx.lineTo(originX + proj2.x, originY + proj2.y);
+
+      var q1 = v.scale(i).add(u.scale(-extent));
+      var q2 = v.scale(i).add(u.scale(extent));
+      var projQ1 = project3DTo2D(q1, pitchRad, yawRad, fov, state.camOrthographic);
+      var projQ2 = project3DTo2D(q2, pitchRad, yawRad, fov, state.camOrthographic);
+      ctx.moveTo(originX + projQ1.x, originY + projQ1.y);
+      ctx.lineTo(originX + projQ2.x, originY + projQ2.y);
+    }
+    ctx.stroke();
+
+    // Normal vector arrow from origin
+    var normProj = project3DTo2D(normal.scale(2.2), pitchRad, yawRad, fov, state.camOrthographic);
+    var o2D = project3DTo2D(new Vector3D(0, 0, 0), pitchRad, yawRad, fov, state.camOrthographic);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(originX + o2D.x, originY + o2D.y);
+    ctx.lineTo(originX + normProj.x, originY + normProj.y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+    ctx.fillText('n (Normal)', originX + normProj.x + 6, originY + normProj.y - 4);
+    ctx.restore();
+  }
+
   function render3DSpace() {
     var yawRad = (state.camYaw * Math.PI) / 180;
     var pitchRad = (state.camPitch * Math.PI) / 180;
@@ -1075,7 +1143,7 @@
     var originX = viewWidth / 2;
     var originY = viewHeight / 2;
 
-    // Build 3D Transformation Matrix A
+    // Build 3D Transformation Matrix A = Rz * Ry * Rx * Shear * Scale
     var rotX = Matrix3x3.rotationX((state.rotX3D * Math.PI) / 180);
     var rotY = Matrix3x3.rotationY((state.rotY3D * Math.PI) / 180);
     var rotZ = Matrix3x3.rotationZ((state.rotZ3D * Math.PI) / 180);
@@ -1084,12 +1152,27 @@
       0, state.scaleY3D, 0,
       0, 0, state.scaleZ3D
     ]);
+    var shearM = state.shearXY3D ? new Matrix3x3([ 1, state.shearXY3D, 0, 0, 1, 0, 0, 0, 1 ]) : Matrix3x3.identity();
 
-    var transform3D = rotZ.multiply(rotY).multiply(rotX).multiply(scaleM);
+    var transform3D = rotZ.multiply(rotY).multiply(rotX).multiply(shearM).multiply(scaleM);
 
-    // Compute 3D Volume (Determinant)
+    // Compute 3D Telemetry (Determinant, Trace, Rank, Columns)
     var det3D = transform3D.determinant();
+    var trace3D = transform3D.trace();
+    var rank3D = transform3D.rank();
+    var cols3D = transform3D.getColumns();
+
     valDet3D.textContent = det3D.toFixed(2);
+    var elTrace3D = $('val-trace-3d');
+    var elDetSum3D = $('val-det-summary-3d');
+    var elRank3D = $('badge-rank-3d');
+    if (elTrace3D) elTrace3D.textContent = trace3D.toFixed(2);
+    if (elDetSum3D) elDetSum3D.textContent = det3D.toFixed(2);
+    if (elRank3D) {
+      elRank3D.textContent = 'Rank: ' + rank3D;
+      elRank3D.className = rank3D === 3 ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-zero';
+    }
+
     if (Math.abs(det3D) < 0.01) {
       badgeDet3D.textContent = 'Planar Collapse (det=0)';
       badgeDet3D.className = 'telemetry-badge badge-det-zero';
@@ -1098,29 +1181,80 @@
       badgeDet3D.className = 'telemetry-badge badge-det-pos';
     }
 
-    // 1. Draw 3D Axes
+    // 3x3 Matrix readout display
+    var elMat3D = $('mat-3d-display');
+    if (elMat3D) {
+      var m = transform3D.m;
+      elMat3D.innerHTML =
+        '[ ' + m[0].toFixed(2).padStart(5, ' ') + ', ' + m[1].toFixed(2).padStart(5, ' ') + ', ' + m[2].toFixed(2).padStart(5, ' ') + ' ]<br>' +
+        '[ ' + m[3].toFixed(2).padStart(5, ' ') + ', ' + m[4].toFixed(2).padStart(5, ' ') + ', ' + m[5].toFixed(2).padStart(5, ' ') + ' ]<br>' +
+        '[ ' + m[6].toFixed(2).padStart(5, ' ') + ', ' + m[7].toFixed(2).padStart(5, ' ') + ', ' + m[8].toFixed(2).padStart(5, ' ') + ' ]';
+    }
+
+    // Planar equation if singular / rank-deficient
+    var isPlanar = Math.abs(det3D) < 0.05;
+    var elPlaneEq = $('val-plane-equation');
+    var elPlaneNorm = $('val-plane-normal');
+    if (isPlanar) {
+      var n = cols3D[0].cross(cols3D[1]);
+      if (n.magnitude() < 1e-4) n = cols3D[0].cross(cols3D[2]);
+      if (n.magnitude() < 1e-4) n = cols3D[1].cross(cols3D[2]);
+      if (n.magnitude() < 1e-4) n = new Vector3D(0, 0, 1);
+      n = n.normalize();
+      if (elPlaneEq) elPlaneEq.textContent = n.x.toFixed(2) + 'x + ' + n.y.toFixed(2) + 'y + ' + n.z.toFixed(2) + 'z = 0';
+      if (elPlaneNorm) elPlaneNorm.textContent = '[ ' + n.x.toFixed(2) + ', ' + n.y.toFixed(2) + ', ' + n.z.toFixed(2) + ' ]';
+      drawPlanarSubspaceGrid(n, pitchRad, yawRad, fov, originX, originY);
+    } else {
+      if (elPlaneEq) elPlaneEq.textContent = 'Full Rank ℝ³ (det ≠ 0)';
+      if (elPlaneNorm) elPlaneNorm.textContent = '[ Span = ℝ³ ]';
+    }
+
+    // 1. Draw Static Reference 3D Axes
     var axes3D = [
-      { v: new Vector3D(2.5, 0, 0), col: '#f43f5e', name: 'X (î)' },
-      { v: new Vector3D(0, 2.5, 0), col: '#10b981', name: 'Y (ĵ)' },
-      { v: new Vector3D(0, 0, 2.5), col: '#06b6d4', name: 'Z (k̂)' }
+      { v: new Vector3D(2.5, 0, 0), col: 'rgba(244, 63, 94, 0.45)', name: 'X' },
+      { v: new Vector3D(0, 2.5, 0), col: 'rgba(16, 185, 129, 0.45)', name: 'Y' },
+      { v: new Vector3D(0, 0, 2.5), col: 'rgba(6, 182, 212, 0.45)', name: 'Z' }
     ];
 
-    var o2D = project3DTo2D(new Vector3D(0, 0, 0), pitchRad, yawRad, fov);
+    var o2D = project3DTo2D(new Vector3D(0, 0, 0), pitchRad, yawRad, fov, state.camOrthographic);
     axes3D.forEach(function (ax) {
-      var p = project3DTo2D(ax.v, pitchRad, yawRad, fov);
+      var p = project3DTo2D(ax.v, pitchRad, yawRad, fov, state.camOrthographic);
       ctx.beginPath();
       ctx.strokeStyle = ax.col;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([2, 2]);
       ctx.moveTo(originX + o2D.x, originY + o2D.y);
       ctx.lineTo(originX + p.x, originY + p.y);
       ctx.stroke();
-
-      ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillStyle = ax.col;
-      ctx.fillText(ax.name, originX + p.x + 8, originY + p.y - 4);
+      ctx.setLineDash([]);
     });
 
-    // 2. Render 3D Mesh (Cube)
+    // 2. Transformed 3D Basis Triad (Columns of Matrix A)
+    var triad = [
+      { v: cols3D[0], col: '#f43f5e', name: 'a₁' },
+      { v: cols3D[1], col: '#10b981', name: 'a₂' },
+      { v: cols3D[2], col: '#06b6d4', name: 'a₃' }
+    ];
+    triad.forEach(function (tr) {
+      var p = project3DTo2D(tr.v, pitchRad, yawRad, fov, state.camOrthographic);
+      var sx = originX + p.x, sy = originY + p.y;
+      ctx.beginPath();
+      ctx.strokeStyle = tr.col;
+      ctx.lineWidth = 2.5;
+      ctx.moveTo(originX + o2D.x, originY + o2D.y);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+
+      ctx.fillStyle = tr.col;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = '700 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+      ctx.fillText(tr.name + ' [' + tr.v.x.toFixed(1) + ',' + tr.v.y.toFixed(1) + ',' + tr.v.z.toFixed(1) + ']', sx + 6, sy - 4);
+    });
+
+    // 3. Render 3D Transformed Mesh (Cube) with Directional Lighting
     var rawCubeVertices = [
       new Vector3D(-1, -1, -1), new Vector3D(1, -1, -1),
       new Vector3D(1, 1, -1),   new Vector3D(-1, 1, -1),
@@ -1137,26 +1271,32 @@
       [1, 2, 6, 5]  // Right
     ];
 
-    // Transform vertices
     var transformedPts = rawCubeVertices.map(function (v) {
       return transform3D.apply(v);
     });
 
-    // Project and calculate depth
     var projectedPts = transformedPts.map(function (v) {
-      var proj = project3DTo2D(v, pitchRad, yawRad, fov);
+      var proj = project3DTo2D(v, pitchRad, yawRad, fov, state.camOrthographic);
       return { x: originX + proj.x, y: originY + proj.y, depth: proj.depth };
     });
 
-    // Sort faces by depth for painter's algorithm
     var faceList = cubeFaces.map(function (faceIndices) {
       var avgZ = (projectedPts[faceIndices[0]].depth + projectedPts[faceIndices[1]].depth + projectedPts[faceIndices[2]].depth + projectedPts[faceIndices[3]].depth) / 4;
       return { indices: faceIndices, depth: avgZ };
     });
     faceList.sort(function (a, b) { return a.depth - b.depth; });
 
-    // Draw shaded faces
+    var lightDir = new Vector3D(0.5, 0.8, 0.4).normalize();
     faceList.forEach(function (f) {
+      var v0 = transformedPts[f.indices[0]];
+      var v1 = transformedPts[f.indices[1]];
+      var v2 = transformedPts[f.indices[2]];
+      var e1 = new Vector3D(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
+      var e2 = new Vector3D(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
+      var norm = e1.cross(e2).normalize();
+      var diff = Math.max(0, norm.dot(lightDir));
+      var intensity = 0.22 + 0.68 * diff;
+
       var p0 = projectedPts[f.indices[0]];
       var p1 = projectedPts[f.indices[1]];
       var p2 = projectedPts[f.indices[2]];
@@ -1169,14 +1309,18 @@
       ctx.lineTo(p3.x, p3.y);
       ctx.closePath();
 
-      ctx.fillStyle = det3D >= 0 ? 'rgba(99, 102, 241, 0.22)' : 'rgba(245, 158, 11, 0.24)';
-      ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)';
+      var r = det3D >= 0 ? Math.round(99 * intensity) : Math.round(245 * intensity);
+      var g = det3D >= 0 ? Math.round(102 * intensity) : Math.round(158 * intensity);
+      var b = det3D >= 0 ? Math.round(241 * intensity) : Math.round(11 * intensity);
+
+      ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ', 0.32)';
+      ctx.strokeStyle = det3D >= 0 ? 'rgba(129, 140, 248, 0.75)' : 'rgba(251, 191, 36, 0.75)';
       ctx.lineWidth = 1.5;
       ctx.fill();
       ctx.stroke();
     });
 
-    drawTopRightHUDTag('3D Space: Drag mouse to Orbit Camera (Yaw: ' + state.camYaw + '°, Pitch: ' + state.camPitch + '°)');
+    drawTopRightHUDTag('3D: Yaw ' + state.camYaw + '°, Pitch ' + state.camPitch + '° (' + (state.camOrthographic ? 'Ortho' : 'Persp') + ')');
   }
 
   // ── LossLab Optimization Sandbox (Mode 6) ─────────────────────────────────
@@ -2666,15 +2810,86 @@
     sliderScaleY.addEventListener('input', function () { state.scaleY3D = parseFloat(this.value); $('val-scale-y').textContent = state.scaleY3D.toFixed(1); render(); });
     sliderScaleZ.addEventListener('input', function () { state.scaleZ3D = parseFloat(this.value); $('val-scale-z').textContent = state.scaleZ3D.toFixed(1); render(); });
 
+    // 3D Camera Controls & Auto-Orbit
+    var btnToggleOrbit3D = $('btn-toggle-orbit-3d');
+    var orbit3DAnimId = null;
+    if (btnToggleOrbit3D) {
+      btnToggleOrbit3D.addEventListener('click', function () {
+        state.autoOrbit3D = !state.autoOrbit3D;
+        this.textContent = state.autoOrbit3D ? '⏹ Stop Orbit' : '▶ Auto Orbit';
+        this.style.color = state.autoOrbit3D ? '#38bdf8' : '';
+        var valCamStatus = $('val-cam-status');
+        if (valCamStatus) valCamStatus.textContent = state.autoOrbit3D ? 'Auto Orbiting' : 'Manual Drag';
+
+        if (state.autoOrbit3D) {
+          function orbitTick() {
+            if (!state.autoOrbit3D || state.mode !== '3d') {
+              orbit3DAnimId = null;
+              return;
+            }
+            state.camYaw = (state.camYaw + 0.45);
+            if (state.camYaw > 180) state.camYaw -= 360;
+            sliderYaw3D.value = Math.round(state.camYaw);
+            valYaw3D.textContent = Math.round(state.camYaw) + '°';
+            render();
+            orbit3DAnimId = requestAnimationFrame(orbitTick);
+          }
+          orbit3DAnimId = requestAnimationFrame(orbitTick);
+        } else if (orbit3DAnimId) {
+          cancelAnimationFrame(orbit3DAnimId);
+          orbit3DAnimId = null;
+        }
+      });
+    }
+
+    var btnToggleCamProj = $('btn-toggle-cam-proj');
+    if (btnToggleCamProj) {
+      btnToggleCamProj.addEventListener('click', function () {
+        state.camOrthographic = !state.camOrthographic;
+        this.textContent = state.camOrthographic ? 'Ortho' : 'Persp';
+        this.style.color = state.camOrthographic ? '#10b981' : '';
+        render();
+      });
+    }
+
+    var btnResetCam3D = $('btn-reset-cam-3d');
+    if (btnResetCam3D) {
+      btnResetCam3D.addEventListener('click', function () {
+        state.camYaw = 25;
+        state.camPitch = 20;
+        sliderYaw3D.value = 25;
+        valYaw3D.textContent = '25°';
+        sliderPitch3D.value = 20;
+        valPitch3D.textContent = '20°';
+        render();
+      });
+    }
+
     // 3D Presets
-    document.querySelectorAll('.btn-preset[data-preset-3d]').forEach(function (btn) {
+    document.querySelectorAll('.btn-preset[data-preset-3d], .btn-preset-3d').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var p = this.getAttribute('data-preset-3d');
+        state.shearXY3D = 0;
         if (p === 'cube') {
-          state.scaleX3D = 1; state.scaleY3D = 1; state.scaleZ3D = 1; state.rotX3D = 0; state.rotY3D = 0; state.rotZ3D = 0;
+          state.scaleX3D = 1.0; state.scaleY3D = 1.0; state.scaleZ3D = 1.0;
+          state.rotX3D = 0; state.rotY3D = 0; state.rotZ3D = 0;
+        } else if (p === 'sphere') {
+          state.scaleX3D = 1.2; state.scaleY3D = 1.2; state.scaleZ3D = 1.2;
+          state.rotX3D = 15; state.rotY3D = 30; state.rotZ3D = 0;
+        } else if (p === 'shear3d') {
+          state.scaleX3D = 1.0; state.scaleY3D = 1.0; state.scaleZ3D = 1.0;
+          state.shearXY3D = 0.75;
         } else if (p === 'collapse3d') {
-          state.scaleZ3D = 0; // Det = 0 planar collapse!
+          state.scaleX3D = 1.2; state.scaleY3D = 1.2; state.scaleZ3D = 0.0;
+        } else if (p === 'reflect3d') {
+          state.scaleX3D = 1.0; state.scaleY3D = 1.0; state.scaleZ3D = -1.0;
+        } else if (p === 'rot45') {
+          state.rotX3D = 0; state.rotY3D = 45; state.rotZ3D = 0;
         }
+        sliderScaleX.value = state.scaleX3D; $('val-scale-x').textContent = state.scaleX3D.toFixed(1);
+        sliderScaleY.value = state.scaleY3D; $('val-scale-y').textContent = state.scaleY3D.toFixed(1);
+        sliderScaleZ.value = Math.max(0, state.scaleZ3D); $('val-scale-z').textContent = state.scaleZ3D.toFixed(1);
+        sliderRoll3D.value = state.rotZ3D; valRoll3D.textContent = state.rotZ3D + '°';
         render();
       });
     });

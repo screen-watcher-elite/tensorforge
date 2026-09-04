@@ -668,6 +668,11 @@
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>🧊</span> 3D Transformations (3×3)</h2>
+              <div style="display: flex; gap: 0.3rem;">
+                <button id="btn-toggle-orbit-3d" class="btn-micro" title="Toggle continuous turntable rotation">▶ Auto Orbit</button>
+                <button id="btn-toggle-cam-proj" class="btn-micro" title="Toggle perspective / orthographic camera">Persp</button>
+                <button id="btn-reset-cam-3d" class="btn-micro" title="Reset camera view">↺ Cam</button>
+              </div>
             </div>
             <div class="slider-group">
               <div class="slider-header"><span>Yaw (Rotate Y)</span><span id="val-yaw-3d" class="slider-val">25°</span></div>
@@ -701,21 +706,59 @@
             </div>
           </section>
 
+          <!-- Active Composite Matrix A (3x3) -->
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>✨</span> 3D Presets</h2>
+              <h2 class="section-title"><span>🔲</span> Composite Matrix A (3×3)</h2>
+              <span id="badge-rank-3d" class="telemetry-badge badge-det-pos">Rank: 3</span>
             </div>
-            <div class="preset-grid">
-              <button class="btn-preset" data-preset-3d="cube">Unit Cube</button>
-              <button class="btn-preset" data-preset-3d="sphere">Sphere Wire</button>
-              <button class="btn-preset" data-preset-3d="shear3d">3D Shear</button>
-              <button class="btn-preset" data-preset-3d="collapse3d">Planar (det=0)</button>
+            <div class="matrix-container" style="justify-content: center; padding: 0.5rem 0;">
+              <div id="mat-3d-display" class="comp-matrix" style="font-size: 0.78rem; line-height: 1.5; text-align: center; width: 100%;">
+                [ 1.00,  0.00,  0.00 ]<br>
+                [ 0.00,  1.00,  0.00 ]<br>
+                [ 0.00,  0.00,  1.00 ]
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.4rem;">
+              <span>Trace tr(A): <strong id="val-trace-3d" style="color: #38bdf8; font-family: var(--font-mono);">3.00</strong></span>
+              <span>Det det(A): <strong id="val-det-summary-3d" style="color: #10b981; font-family: var(--font-mono);">1.00</strong></span>
+            </div>
+          </section>
+
+          <!-- Planar Collapse & Subspace Normal -->
+          <section class="sidebar-section" id="section-plane-eq-3d">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Subspace Plane Equation</h2>
+            </div>
+            <div class="math-formula-box">
+              <div class="formula-title">Cartesian Plane: Ax + By + Cz = 0</div>
+              <div id="val-plane-equation" style="font-family: var(--font-mono); font-size: 0.82rem; color: #f59e0b; margin-top: 0.3rem;">
+                0.00x + 0.00y + 1.00z = 0
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-top: 0.3rem;">
+                <span>Normal Vector n:</span>
+                <strong id="val-plane-normal" style="font-family: var(--font-mono); color: #38bdf8;">[ 0.00, 0.00, 1.00 ]</strong>
+              </div>
             </div>
           </section>
 
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>📦</span> 3D Volume & Determinant</h2>
+              <h2 class="section-title"><span>✨</span> 3D Presets</h2>
+            </div>
+            <div class="preset-grid" style="grid-template-columns: repeat(3, 1fr);">
+              <button class="btn-preset btn-preset-3d" data-preset-3d="cube">Unit Cube</button>
+              <button class="btn-preset btn-preset-3d" data-preset-3d="sphere">Sphere Wire</button>
+              <button class="btn-preset btn-preset-3d" data-preset-3d="shear3d">3D Shear</button>
+              <button class="btn-preset btn-preset-3d" data-preset-3d="collapse3d">Planar (det=0)</button>
+              <button class="btn-preset btn-preset-3d" data-preset-3d="reflect3d">Reflect (XY)</button>
+              <button class="btn-preset btn-preset-3d" data-preset-3d="rot45">Rotate Y 45°</button>
+            </div>
+          </section>
+
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📦</span> 3D Volume &amp; Determinant</h2>
             </div>
             <div class="telemetry-grid">
               <div class="telemetry-card">
@@ -725,7 +768,7 @@
               </div>
               <div class="telemetry-card">
                 <span class="telemetry-label">Camera Orbit</span>
-                <span class="telemetry-value">Drag Canvas</span>
+                <span id="val-cam-status" class="telemetry-value">Manual Drag</span>
                 <span class="telemetry-badge badge-det-pos">60 FPS 3D</span>
               </div>
             </div>
