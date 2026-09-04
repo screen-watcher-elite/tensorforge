@@ -861,29 +861,117 @@
             <div class="section-header">
               <h2 class="section-title"><span>🕸️</span> Computational Graph</h2>
             </div>
-            <div class="shape-selector">
+            <div class="shape-selector" style="grid-template-columns: repeat(3, 1fr);">
               <button class="btn-autograd-preset active" data-graph="neuron">Neuron + ReLU</button>
               <button class="btn-autograd-preset" data-graph="loss">MSE Loss</button>
+              <button class="btn-autograd-preset" data-graph="affine">Affine (Wx+b)</button>
             </div>
           </section>
 
+          <!-- Dynamic Parameter Controls: Neuron Preset -->
+          <section class="sidebar-section" id="section-ag-neuron-params">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚙️</span> Neuron Inputs &amp; Weights</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Input x₁</span><span id="val-ag-x1" class="slider-val">1.5</span></div>
+              <input type="range" id="slider-ag-x1" class="custom-slider" min="-3" max="3" step="0.1" value="1.5">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Weight w₁</span><span id="val-ag-w1" class="slider-val">0.8</span></div>
+              <input type="range" id="slider-ag-w1" class="custom-slider" min="-2.5" max="2.5" step="0.1" value="0.8">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Input x₂</span><span id="val-ag-x2" class="slider-val">-1.0</span></div>
+              <input type="range" id="slider-ag-x2" class="custom-slider" min="-3" max="3" step="0.1" value="-1.0">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Weight w₂</span><span id="val-ag-w2" class="slider-val">1.2</span></div>
+              <input type="range" id="slider-ag-w2" class="custom-slider" min="-2.5" max="2.5" step="0.1" value="1.2">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Bias b</span><span id="val-ag-b" class="slider-val">0.3</span></div>
+              <input type="range" id="slider-ag-b" class="custom-slider" min="-2.0" max="2.0" step="0.1" value="0.3">
+            </div>
+          </section>
+
+          <!-- Dynamic Parameter Controls: MSE Loss Preset -->
+          <section class="sidebar-section hidden" id="section-ag-loss-params">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚙️</span> Loss Target &amp; Prediction</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>y_pred (Model Output)</span><span id="val-ag-ypred" class="slider-val">0.85</span></div>
+              <input type="range" id="slider-ag-ypred" class="custom-slider" min="-2" max="2" step="0.05" value="0.85">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>y_true (Ground Truth)</span><span id="val-ag-ytrue" class="slider-val">0.50</span></div>
+              <input type="range" id="slider-ag-ytrue" class="custom-slider" min="-2" max="2" step="0.05" value="0.50">
+            </div>
+          </section>
+
+          <!-- Dynamic Parameter Controls: Affine Layer Preset -->
+          <section class="sidebar-section hidden" id="section-ag-affine-params">
+            <div class="section-header">
+              <h2 class="section-title"><span>⚙️</span> 2D Affine Layer (W·x + b)</h2>
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Input Vector x₁</span><span id="val-ag-aff-x1" class="slider-val">1.0</span></div>
+              <input type="range" id="slider-ag-aff-x1" class="custom-slider" min="-2" max="2" step="0.1" value="1.0">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Input Vector x₂</span><span id="val-ag-aff-x2" class="slider-val">-0.5</span></div>
+              <input type="range" id="slider-ag-aff-x2" class="custom-slider" min="-2" max="2" step="0.1" value="-0.5">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Weight W₁₁</span><span id="val-ag-aff-w11" class="slider-val">1.2</span></div>
+              <input type="range" id="slider-ag-aff-w11" class="custom-slider" min="-2" max="2" step="0.1" value="1.2">
+            </div>
+            <div class="slider-group">
+              <div class="slider-header"><span>Weight W₂₂</span><span id="val-ag-aff-w22" class="slider-val">0.9</span></div>
+              <input type="range" id="slider-ag-aff-w22" class="custom-slider" min="-2" max="2" step="0.1" value="0.9">
+            </div>
+          </section>
+
+          <!-- Controls Grid -->
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>⚡</span> Autograd Controls</h2>
+              <span id="badge-ag-step" class="telemetry-badge badge-det-pos">Status: Idle</span>
             </div>
             <div class="preset-grid" style="grid-template-columns: 1fr 1fr;">
               <button id="btn-forward-pass" class="btn-preset" style="background: rgba(99, 102, 241, 0.2); border-color: var(--accent-primary); color: #c7d2fe;">▶ Forward Pass</button>
               <button id="btn-backward-pass" class="btn-preset" style="background: rgba(245, 158, 11, 0.2); border-color: var(--eigen-1); color: #fde68a;">◀ Backprop</button>
+              <button id="btn-step-tape" class="btn-preset">⏭ Step Tape</button>
+              <button id="btn-reset-autograd" class="btn-preset">↺ Reset Values</button>
             </div>
           </section>
 
+          <!-- Jacobian Matrix Card (Active for Affine) -->
+          <section class="sidebar-section hidden" id="section-ag-jacobian">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Layer Jacobian J = ∂y/∂x</h2>
+              <span id="badge-ag-jacobian" class="telemetry-badge badge-det-pos">J = W</span>
+            </div>
+            <div class="matrix-container" style="justify-content: center; padding: 0.4rem 0;">
+              <div id="val-ag-jacobian-matrix" class="comp-matrix" style="font-size: 0.82rem; text-align: center; width: 100%;">
+                [ 1.20, -0.60 ]<br>[ 0.40,  0.90 ]
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-top: 0.35rem;">
+              <span>Output Vector y:</span>
+              <strong id="val-ag-output-vec" style="font-family: var(--font-mono); color: #10b981;">[ 1.70, 0.05 ]</strong>
+            </div>
+          </section>
+
+          <!-- Backpropagation Status & Step-by-Step Chain Rule breakdown -->
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>📝</span> Backpropagation Status</h2>
+              <h2 class="section-title"><span>📝</span> Reverse-Mode Chain Rule</h2>
             </div>
             <div class="math-formula-box">
-              <div class="formula-title">Chain Rule: ∂L/∂w = (∂L/∂y) · (∂y/∂w)</div>
-              <div id="autograd-status-text" class="formula-steps">Click 'Forward Pass' to compute node outputs, then 'Backprop' to watch gradient flow!</div>
+              <div class="formula-title" id="autograd-formula-title">Chain Rule: ∂L/∂w = (∂L/∂y) · (∂y/∂w)</div>
+              <div id="autograd-status-text" class="formula-steps">Scrub sliders to tweak values, click 'Forward Pass', or use 'Step Tape' to trace reverse gradients!</div>
             </div>
           </section>
         </div>

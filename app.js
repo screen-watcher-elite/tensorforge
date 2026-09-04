@@ -80,6 +80,23 @@
     // MicroGraph Autograd State
     autogradPreset: 'neuron',
     autogradStep: 'idle', // 'idle' | 'forward' | 'backward'
+    autogradTapeStep: -1,
+    hoverAutogradNode: null,
+    ag_x1: 1.5,
+    ag_w1: 0.8,
+    ag_x2: -1.0,
+    ag_w2: 1.2,
+    ag_b: 0.3,
+    ag_yPred: 0.85,
+    ag_yTrue: 0.50,
+    ag_aff_x1: 1.0,
+    ag_aff_x2: -0.5,
+    ag_aff_w11: 1.2,
+    ag_aff_w12: -0.6,
+    ag_aff_w21: 0.4,
+    ag_aff_w22: 0.9,
+    ag_aff_b1: 0.2,
+    ag_aff_b2: -0.3,
 
     // Display Toggles
     showCustomVec: true,
@@ -220,7 +237,14 @@
   // Autograd Elements
   var btnForwardPass = $('btn-forward-pass');
   var btnBackwardPass = $('btn-backward-pass');
+  var btnStepTape = $('btn-step-tape');
+  var btnResetAutograd = $('btn-reset-autograd');
   var autogradStatusText = $('autograd-status-text');
+  var autogradFormulaTitle = $('autograd-formula-title');
+  var badgeAgStep = $('badge-ag-step');
+  var valAgJacobianMatrix = $('val-ag-jacobian-matrix');
+  var valAgOutputVec = $('val-ag-output-vec');
+  var currentAutogradNodes = [];
 
   // Sliders & HUD
   var rotationSlider = $('slider-rotation');
@@ -1486,97 +1510,301 @@
   // ── MicroGraph Autograd DAG Renderer (Mode 7) ─────────────────────────────
 
   function renderAutogradGraph() {
+    var W = viewWidth || canvas.width;
+    var H = viewHeight || canvas.height;
     var nodes = [];
+    var edges = [];
+    var reverseTape = [];
+    var bw = 96, bh = 54;
+
+    var isForward = state.autogradStep === 'forward' || state.autogradStep === 'backward';
+    var isBackward = state.autogradStep === 'backward';
 
     if (state.autogradPreset === 'neuron') {
-      // y = ReLU(w1*x1 + w2*x2 + b)
-      var x1 = 1.5, w1 = 0.8;
-      var x2 = -1.0, w2 = 1.2;
-      var b = 0.3;
+      var x1 = state.ag_x1, w1 = state.ag_w1;
+      var x2 = state.ag_x2, w2 = state.ag_w2;
+      var b = state.ag_b;
 
-      var p1 = x1 * w1; // 1.2
-      var p2 = x2 * w2; // -1.2
-      var sum = p1 + p2 + b; // 0.3
-      var reluOut = sum > 0 ? sum : 0; // 0.3
+      var p1 = x1 * w1;
+      var p2 = x2 * w2;
+      var sum = p1 + p2 + b;
+      var reluOut = sum > 0 ? sum : 0;
 
-      // Backward gradients
+      // Backward gradients via chain rule
       var dRelu = 1.0;
-      var dSum = reluOut > 0 ? 1.0 : 0.0;
-      var dW1 = dSum * x1;
-      var dW2 = dSum * x2;
+      var dSum = sum > 0 ? 1.0 : 0.0;
+      var dP1 = dSum * 1.0;
+      var dP2 = dSum * 1.0;
+      var dB = dSum * 1.0;
+      var dW1 = dP1 * x1;
+      var dX1 = dP1 * w1;
+      var dW2 = dP2 * x2;
+      var dX2 = dP2 * w2;
+
+      // Node layout coordinates
+      var col1 = W * 0.15;
+      var col2 = W * 0.40;
+      var col3 = W * 0.65;
+      var col4 = W * 0.88;
 
       nodes = [
-        { label: 'x₁', val: x1, grad: 0.0, x: 120, y: 160, type: 'in' },
-        { label: 'w₁', val: w1, grad: dW1, x: 120, y: 240, type: 'param' },
-        { label: 'x₂', val: x2, grad: 0.0, x: 120, y: 340, type: 'in' },
-        { label: 'w₂', val: w2, grad: dW2, x: 120, y: 420, type: 'param' },
-        { label: 'b', val: b, grad: dSum, x: 260, y: 480, type: 'param' },
-        { label: 'w₁·x₁', val: p1, grad: dSum, x: 260, y: 200, type: 'op' },
-        { label: 'w₂·x₂', val: p2, grad: dSum, x: 260, y: 380, type: 'op' },
-        { label: 'Σ (+)', val: sum, grad: dSum, x: 420, y: 290, type: 'op' },
-        { label: 'ReLU', val: reluOut, grad: dRelu, x: 580, y: 290, type: 'out' }
+        { label: 'x₁', val: x1, grad: dX1, x: col1, y: H * 0.18, type: 'in', desc: 'Input Feature 1' },
+        { label: 'w₁', val: w1, grad: dW1, x: col1, y: H * 0.36, type: 'param', desc: 'Weight 1' },
+        { label: 'x₂', val: x2, grad: dX2, x: col1, y: H * 0.64, type: 'in', desc: 'Input Feature 2' },
+        { label: 'w₂', val: w2, grad: dW2, x: col1, y: H * 0.82, type: 'param', desc: 'Weight 2' },
+        { label: 'w₁·x₁', val: p1, grad: dP1, x: col2, y: H * 0.27, type: 'op', desc: 'Product 1' },
+        { label: 'w₂·x₂', val: p2, grad: dP2, x: col2, y: H * 0.73, type: 'op', desc: 'Product 2' },
+        { label: 'b', val: b, grad: dB, x: col2, y: H * 0.90, type: 'param', desc: 'Neuron Bias' },
+        { label: 'Σ (+)', val: sum, grad: dSum, x: col3, y: H * 0.50, type: 'op', desc: 'Affine Sum (z)' },
+        { label: 'ReLU', val: reluOut, grad: dRelu, x: col4, y: H * 0.50, type: 'out', desc: 'Activation Output (a)' }
       ];
-    } else {
-      // MSE Loss: L = (y_pred - y_true)^2
-      nodes = [
-        { label: 'y_pred', val: 0.85, grad: 0.70, x: 160, y: 220, type: 'in' },
-        { label: 'y_true', val: 0.50, grad: -0.70, x: 160, y: 360, type: 'in' },
-        { label: 'diff (-)', val: 0.35, grad: 0.70, x: 340, y: 290, type: 'op' },
-        { label: 'MSE (²)', val: 0.12, grad: 1.00, x: 520, y: 290, type: 'out' }
-      ];
-    }
 
-    // Draw Connectors
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1.5;
-    for (var i = 0; i < nodes.length - 1; i++) {
-      for (var j = i + 1; j < nodes.length; j++) {
-        if (nodes[j].x > nodes[i].x && nodes[j].x - nodes[i].x < 200) {
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x + 45, nodes[i].y);
-          ctx.lineTo(nodes[j].x - 45, nodes[j].y);
-          ctx.stroke();
-        }
+      edges = [
+        { from: 0, to: 4, local: '×' + w1.toFixed(1), dOut: dX1 },
+        { from: 1, to: 4, local: '×' + x1.toFixed(1), dOut: dW1 },
+        { from: 2, to: 5, local: '×' + w2.toFixed(1), dOut: dX2 },
+        { from: 3, to: 5, local: '×' + x2.toFixed(1), dOut: dW2 },
+        { from: 4, to: 7, local: '+1.0', dOut: dP1 },
+        { from: 5, to: 7, local: '+1.0', dOut: dP2 },
+        { from: 6, to: 7, local: '+1.0', dOut: dB },
+        { from: 7, to: 8, local: sum > 0 ? '1 (act)' : '0 (kill)', dOut: dSum }
+      ];
+
+      reverseTape = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+
+    } else if (state.autogradPreset === 'loss') {
+      var yPred = state.ag_yPred;
+      var yTrue = state.ag_yTrue;
+      var diff = yPred - yTrue;
+      var mse = diff * diff;
+
+      // Backward
+      var dMse = 1.0;
+      var dDiff = 2 * diff;
+      var dYPred = dDiff * 1.0;
+      var dYTrue = dDiff * -1.0;
+
+      var col1 = W * 0.20;
+      var col2 = W * 0.52;
+      var col3 = W * 0.84;
+
+      nodes = [
+        { label: 'y_pred', val: yPred, grad: dYPred, x: col1, y: H * 0.35, type: 'param', desc: 'Model Prediction' },
+        { label: 'y_true', val: yTrue, grad: dYTrue, x: col1, y: H * 0.65, type: 'in', desc: 'Ground Truth Label' },
+        { label: 'diff (-)', val: diff, grad: dDiff, x: col2, y: H * 0.50, type: 'op', desc: 'Residual Error (y_pred - y_true)' },
+        { label: 'MSE (²)', val: mse, grad: dMse, x: col3, y: H * 0.50, type: 'out', desc: 'Squared Error Loss L' }
+      ];
+
+      edges = [
+        { from: 0, to: 2, local: '+1.0', dOut: dYPred },
+        { from: 1, to: 2, local: '-1.0', dOut: dYTrue },
+        { from: 2, to: 3, local: '2·diff (' + (2 * diff).toFixed(2) + ')', dOut: dDiff }
+      ];
+
+      reverseTape = [3, 2, 0, 1];
+
+    } else if (state.autogradPreset === 'affine') {
+      var ax1 = state.ag_aff_x1, ax2 = state.ag_aff_x2;
+      var W11 = state.ag_aff_w11, W12 = state.ag_aff_w12;
+      var W21 = state.ag_aff_w21, W22 = state.ag_aff_w22;
+      var ab1 = state.ag_aff_b1, ab2 = state.ag_aff_b2;
+
+      var y1 = W11 * ax1 + W12 * ax2 + ab1;
+      var y2 = W21 * ax1 + W22 * ax2 + ab2;
+      var loss = 0.5 * (y1 * y1 + y2 * y2);
+
+      // Backward
+      var dLoss = 1.0;
+      var dY1 = y1, dY2 = y2;
+      var dW11 = dY1 * ax1, dW12 = dY1 * ax2;
+      var dW21 = dY2 * ax1, dW22 = dY2 * ax2;
+      var dAX1 = W11 * dY1 + W21 * dY2;
+      var dAX2 = W12 * dY1 + W22 * dY2;
+      var dAB1 = dY1, dAB2 = dY2;
+
+      var col1 = W * 0.16;
+      var col2 = W * 0.44;
+      var col3 = W * 0.68;
+      var col4 = W * 0.88;
+
+      nodes = [
+        { label: 'x [x₁,x₂]', val: Math.hypot(ax1, ax2), grad: Math.hypot(dAX1, dAX2), x: col1, y: H * 0.25, type: 'in', desc: 'Input Vector x' },
+        { label: 'W (2×2)', val: Math.hypot(W11, W22), grad: Math.hypot(dW11, dW22), x: col1, y: H * 0.50, type: 'param', desc: 'Weight Matrix W' },
+        { label: 'b [b₁,b₂]', val: Math.hypot(ab1, ab2), grad: Math.hypot(dAB1, dAB2), x: col1, y: H * 0.75, type: 'param', desc: 'Bias Vector b' },
+        { label: 'W·x (Map)', val: Math.hypot(y1 - ab1, y2 - ab2), grad: Math.hypot(dY1, dY2), x: col2, y: H * 0.38, type: 'op', desc: 'Linear Map W·x' },
+        { label: 'y = Wx+b', val: Math.hypot(y1, y2), grad: Math.hypot(dY1, dY2), x: col3, y: H * 0.50, type: 'op', desc: 'Affine Vector y' },
+        { label: 'Loss ½||y||²', val: loss, grad: dLoss, x: col4, y: H * 0.50, type: 'out', desc: 'Scalar L2 Loss' }
+      ];
+
+      edges = [
+        { from: 0, to: 3, local: 'J = W', dOut: Math.hypot(dAX1, dAX2) },
+        { from: 1, to: 3, local: 'x ⊗', dOut: Math.hypot(dW11, dW22) },
+        { from: 3, to: 4, local: '+I', dOut: Math.hypot(dY1, dY2) },
+        { from: 2, to: 4, local: '+I', dOut: Math.hypot(dAB1, dAB2) },
+        { from: 4, to: 5, local: 'yᵀ', dOut: dLoss }
+      ];
+
+      reverseTape = [5, 4, 3, 2, 1, 0];
+
+      // Update Jacobian card telemetry
+      if (valAgJacobianMatrix) {
+        valAgJacobianMatrix.innerHTML = '[ ' + W11.toFixed(2) + ', ' + W12.toFixed(2) + ' ]<br>[ ' + W21.toFixed(2) + ', ' + W22.toFixed(2) + ' ]';
+      }
+      if (valAgOutputVec) {
+        valAgOutputVec.textContent = '[ ' + y1.toFixed(2) + ', ' + y2.toFixed(2) + ' ]';
       }
     }
-    ctx.restore();
 
-    // Draw Nodes
-    nodes.forEach(function (n) {
-      ctx.save();
-      var isForward = state.autogradStep === 'forward' || state.autogradStep === 'backward';
-      var isBackward = state.autogradStep === 'backward';
+    // Save bounding boxes for mouse hover hit testing
+    currentAutogradNodes = nodes.map(function (n) {
+      return { x: n.x, y: n.y, bw: bw, bh: bh, label: n.label, type: n.type };
+    });
 
-      ctx.fillStyle = n.type === 'out' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.85)';
-      ctx.strokeStyle = isBackward && n.type === 'param' ? '#f59e0b' : 'rgba(99, 102, 241, 0.4)';
-      ctx.lineWidth = 2;
+    var activeTapeNodeIdx = null;
+    if (state.autogradTapeStep >= 0 && state.autogradTapeStep < reverseTape.length) {
+      activeTapeNodeIdx = reverseTape[state.autogradTapeStep];
+    }
 
-      // Rounded box
-      var bw = 85, bh = 50;
+    // ── 1. Draw Explicit Directed Edges ─────────────────────────────────────
+    ctx.save();
+    edges.forEach(function (e) {
+      var nFrom = nodes[e.from];
+      var nTo = nodes[e.to];
+      if (!nFrom || !nTo) return;
+
+      var p1x = nFrom.x + bw / 2;
+      var p1y = nFrom.y;
+      var p2x = nTo.x - bw / 2;
+      var p2y = nTo.y;
+      var mx = (p1x + p2x) / 2;
+      var my = (p1y + p2y) / 2;
+
+      var isHighlighted = (state.hoverAutogradNode === e.from || state.hoverAutogradNode === e.to);
+      var isTapeActive = (activeTapeNodeIdx === e.from || activeTapeNodeIdx === e.to);
+
       ctx.beginPath();
-      ctx.roundRect(n.x - bw / 2, n.y - bh / 2, bw, bh, 8);
-      ctx.fill();
+      ctx.moveTo(p1x, p1y);
+      var cx = (p1x + p2x) / 2;
+      ctx.bezierCurveTo(cx, p1y, cx, p2y, p2x, p2y);
+
+      if (isTapeActive) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.8;
+      } else if (isHighlighted) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+      } else if (isBackward) {
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+        ctx.lineWidth = 1.8;
+      } else {
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+        ctx.lineWidth = 1.4;
+      }
       ctx.stroke();
 
-      // Label & Value
-      ctx.font = '700 12px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillStyle = '#f8fafc';
-      ctx.textAlign = 'center';
-      ctx.fillText(n.label, n.x, n.y - 6);
+      // Draw Arrowhead pointing to (p2x, p2y)
+      var arrowSize = 6;
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.moveTo(p2x, p2y);
+      ctx.lineTo(p2x - arrowSize * 1.4, p2y - arrowSize);
+      ctx.lineTo(p2x - arrowSize * 1.4, p2y + arrowSize);
+      ctx.closePath();
+      ctx.fill();
 
+      // Draw Local Derivative Pill at midpoint
+      if (isBackward || isHighlighted || isTapeActive) {
+        ctx.save();
+        ctx.font = '600 9px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+        var txt = e.local;
+        var tw = ctx.measureText(txt).width;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = isTapeActive ? '#f59e0b' : 'rgba(245, 158, 11, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(mx - tw / 2 - 4, my - 8, tw + 8, 16, 4);
+        else ctx.rect(mx - tw / 2 - 4, my - 8, tw + 8, 16);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = isTapeActive ? '#fde68a' : '#fbbf24';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(txt, mx, my);
+        ctx.restore();
+      }
+    });
+    ctx.restore();
+
+    // ── 2. Draw Nodes ───────────────────────────────────────────────────────
+    nodes.forEach(function (n, idx) {
+      ctx.save();
+      var isTapeTarget = (activeTapeNodeIdx === idx);
+      var isHovered = (state.hoverAutogradNode === idx);
+
+      // Node card backdrop
+      ctx.fillStyle = n.type === 'out' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(15, 23, 42, 0.88)';
+
+      if (isTapeTarget) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 12;
+      } else if (isHovered) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 8;
+      } else if (isBackward && n.type === 'param') {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2;
+      } else if (n.type === 'out') {
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+      } else if (n.type === 'op') {
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+        ctx.lineWidth = 1.5;
+      } else {
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1.5;
+      }
+
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(n.x - bw / 2, n.y - bh / 2, bw, bh, 8);
+      else ctx.rect(n.x - bw / 2, n.y - bh / 2, bw, bh);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Header Label
+      ctx.font = '700 12px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+      ctx.textAlign = 'center';
+      if (n.type === 'param') ctx.fillStyle = '#e879f9';
+      else if (n.type === 'out') ctx.fillStyle = '#34d399';
+      else if (n.type === 'op') ctx.fillStyle = '#38bdf8';
+      else ctx.fillStyle = '#f8fafc';
+      ctx.fillText(n.label, n.x, n.y - 12);
+
+      // Forward Value Pill
       ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
       ctx.fillStyle = isForward ? '#38bdf8' : '#94a3b8';
-      ctx.fillText('v: ' + n.val.toFixed(2), n.x, n.y + 8);
+      ctx.fillText('v: ' + (n.val >= 0 ? '+' : '') + n.val.toFixed(2), n.x, n.y + 3);
 
-      if (isBackward) {
-        ctx.fillStyle = '#f59e0b';
-        ctx.fillText('∇: ' + n.grad.toFixed(2), n.x, n.y + 20);
+      // Backward Gradient Pill
+      if (isBackward || isTapeTarget) {
+        var gradCol = n.grad > 0.001 ? '#10b981' : (n.grad < -0.001 ? '#f43f5e' : '#94a3b8');
+        ctx.fillStyle = gradCol;
+        ctx.font = '700 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+        ctx.fillText('∇: ' + (n.grad >= 0 ? '+' : '') + n.grad.toFixed(2), n.x, n.y + 17);
+      } else {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '500 9px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+        ctx.fillText('∇: pending', n.x, n.y + 17);
       }
+
       ctx.restore();
     });
 
-    drawTopRightHUDTag('MicroGraph Autograd: Click Forward Pass then Backprop to see chain rule!');
+    drawTopRightHUDTag('Autograd: Reverse-Mode DAG (Chain Rule)');
   }
 
   // ── Notes & Quiz Interactive Visual Blackboard ───────────────────────────
@@ -2160,6 +2388,20 @@
     if (state.mode === 'eigen') {
       var pPos = worldToScreen(state.eigenProbe.x, state.eigenProbe.y);
       if (Math.hypot(sx - pPos.x, sy - pPos.y) < threshold) return 'probe';
+    }
+
+    if (state.mode === 'autograd') {
+      var foundIdx = null;
+      for (var ni = 0; ni < currentAutogradNodes.length; ni++) {
+        var nd = currentAutogradNodes[ni];
+        if (Math.abs(sx - nd.x) <= nd.bw / 2 && Math.abs(sy - nd.y) <= nd.bh / 2) {
+          foundIdx = ni;
+          break;
+        }
+      }
+      state.hoverAutogradNode = foundIdx;
+      if (foundIdx !== null) return 'ag_node_' + foundIdx;
+      return null;
     }
 
     var iPos = worldToScreen(state.matrix.a, state.matrix.c);
@@ -3024,28 +3266,180 @@
     }
 
     // Autograd Controls
+    function syncAutogradPresetUI() {
+      var p = state.autogradPreset;
+      var secNeuron = $('section-ag-neuron-params');
+      var secLoss = $('section-ag-loss-params');
+      var secAffine = $('section-ag-affine-params');
+      var secJacobian = $('section-ag-jacobian');
+
+      if (secNeuron) secNeuron.classList.toggle('hidden', p !== 'neuron');
+      if (secLoss) secLoss.classList.toggle('hidden', p !== 'loss');
+      if (secAffine) secAffine.classList.toggle('hidden', p !== 'affine');
+      if (secJacobian) secJacobian.classList.toggle('hidden', p !== 'affine');
+
+      if (badgeAgStep) {
+        if (state.autogradStep === 'backward') {
+          badgeAgStep.textContent = '∇ Backprop Active';
+          badgeAgStep.className = 'telemetry-badge badge-det-pos';
+        } else if (state.autogradStep === 'forward') {
+          badgeAgStep.textContent = 'Forward Evaluated';
+          badgeAgStep.className = 'telemetry-badge badge-det-pos';
+        } else {
+          badgeAgStep.textContent = 'Status: Idle';
+          badgeAgStep.className = 'telemetry-badge';
+        }
+      }
+    }
+
     document.querySelectorAll('.btn-autograd-preset[data-graph]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         document.querySelectorAll('.btn-autograd-preset').forEach(function (b) { b.classList.remove('active'); });
         this.classList.add('active');
         state.autogradPreset = this.getAttribute('data-graph');
         state.autogradStep = 'idle';
-        autogradStatusText.textContent = 'Preset loaded. Click Forward Pass!';
+        state.autogradTapeStep = -1;
+        if (autogradStatusText) {
+          autogradStatusText.textContent = 'Preset loaded. Click Forward Pass or scrub parameters on left!';
+        }
+        syncAutogradPresetUI();
         render();
       });
     });
 
-    btnForwardPass.addEventListener('click', function () {
-      state.autogradStep = 'forward';
-      autogradStatusText.textContent = 'Forward pass complete: intermediate activation values evaluated!';
-      render();
-    });
+    // Neuron Parameter Sliders
+    var bindAgSlider = function (id, valId, stateKey, isFloat) {
+      var sl = $(id);
+      var vl = $(valId);
+      if (sl) {
+        sl.addEventListener('input', function () {
+          var v = isFloat ? parseFloat(this.value) : parseInt(this.value, 10);
+          state[stateKey] = v;
+          if (vl) vl.textContent = v.toFixed(isFloat ? (id.indexOf('ypred') !== -1 || id.indexOf('ytrue') !== -1 ? 2 : 1) : 0);
+          render();
+        });
+      }
+    };
 
-    btnBackwardPass.addEventListener('click', function () {
-      state.autogradStep = 'backward';
-      autogradStatusText.textContent = 'Backprop complete: ∂L/∂w gradients accumulated via chain rule!';
-      render();
-    });
+    bindAgSlider('slider-ag-x1', 'val-ag-x1', 'ag_x1', true);
+    bindAgSlider('slider-ag-w1', 'val-ag-w1', 'ag_w1', true);
+    bindAgSlider('slider-ag-x2', 'val-ag-x2', 'ag_x2', true);
+    bindAgSlider('slider-ag-w2', 'val-ag-w2', 'ag_w2', true);
+    bindAgSlider('slider-ag-b', 'val-ag-b', 'ag_b', true);
+
+    // MSE Loss Sliders
+    bindAgSlider('slider-ag-ypred', 'val-ag-ypred', 'ag_yPred', true);
+    bindAgSlider('slider-ag-ytrue', 'val-ag-ytrue', 'ag_yTrue', true);
+
+    // Affine Sliders
+    bindAgSlider('slider-ag-aff-x1', 'val-ag-aff-x1', 'ag_aff_x1', true);
+    bindAgSlider('slider-ag-aff-x2', 'val-ag-aff-x2', 'ag_aff_x2', true);
+    bindAgSlider('slider-ag-aff-w11', 'val-ag-aff-w11', 'ag_aff_w11', true);
+    bindAgSlider('slider-ag-aff-w22', 'val-ag-aff-w22', 'ag_aff_w22', true);
+
+    if (btnForwardPass) {
+      btnForwardPass.addEventListener('click', function () {
+        state.autogradStep = 'forward';
+        state.autogradTapeStep = -1;
+        if (autogradStatusText) {
+          autogradStatusText.textContent = 'Forward pass complete: intermediate activation values computed!';
+        }
+        syncAutogradPresetUI();
+        render();
+      });
+    }
+
+    if (btnBackwardPass) {
+      btnBackwardPass.addEventListener('click', function () {
+        state.autogradStep = 'backward';
+        state.autogradTapeStep = 999;
+        if (autogradStatusText) {
+          autogradStatusText.textContent = 'Backprop complete: ∂L/∂w gradients accumulated along DAG via chain rule!';
+        }
+        syncAutogradPresetUI();
+        render();
+      });
+    }
+
+    if (btnStepTape) {
+      btnStepTape.addEventListener('click', function () {
+        state.autogradStep = 'backward';
+        var maxSteps = state.autogradPreset === 'neuron' ? 9 : (state.autogradPreset === 'loss' ? 4 : 6);
+        state.autogradTapeStep = (state.autogradTapeStep + 1) % maxSteps;
+
+        if (autogradStatusText) {
+          if (state.autogradPreset === 'neuron') {
+            var msgs = [
+              'Tape Step 1/9: Output ReLU gradient initialized to ∂a/∂a = 1.00',
+              'Tape Step 2/9: Affine Sum ∂a/∂z = (z > 0 ? 1 : 0) propagates backward',
+              'Tape Step 3/9: Bias gradient ∂a/∂b = ∂a/∂z · 1 = ' + (state.ag_b > 0 ? '+1.00' : '0.00'),
+              'Tape Step 4/9: Product 2 ∂a/∂p₂ = ∂a/∂z · 1',
+              'Tape Step 5/9: Product 1 ∂a/∂p₁ = ∂a/∂z · 1',
+              'Tape Step 6/9: Weight 2 gradient ∂a/∂w₂ = (∂a/∂p₂) · x₂ = ' + (state.ag_x2).toFixed(2),
+              'Tape Step 7/9: Input 2 gradient ∂a/∂x₂ = (∂a/∂p₂) · w₂ = ' + (state.ag_w2).toFixed(2),
+              'Tape Step 8/9: Weight 1 gradient ∂a/∂w₁ = (∂a/∂p₁) · x₁ = ' + (state.ag_x1).toFixed(2),
+              'Tape Step 9/9: Input 1 gradient ∂a/∂x₁ = (∂a/∂p₁) · w₁ = ' + (state.ag_w1).toFixed(2)
+            ];
+            autogradStatusText.textContent = msgs[state.autogradTapeStep] || 'Tape complete!';
+          } else if (state.autogradPreset === 'loss') {
+            var diffVal = (state.ag_yPred - state.ag_yTrue);
+            var msgsL = [
+              'Tape Step 1/4: Output Loss gradient initialized to ∂L/∂L = 1.00',
+              'Tape Step 2/4: Residual Error gradient ∂L/∂diff = 2 · diff = ' + (2 * diffVal).toFixed(2),
+              'Tape Step 3/4: Model Weight update direction ∂L/∂y_pred = +2·diff = ' + (2 * diffVal).toFixed(2),
+              'Tape Step 4/4: Target sensitivity ∂L/∂y_true = -2·diff = ' + (-2 * diffVal).toFixed(2)
+            ];
+            autogradStatusText.textContent = msgsL[state.autogradTapeStep] || 'Tape complete!';
+          } else {
+            var msgsA = [
+              'Tape Step 1/6: Scalar L2 Loss gradient initialized to ∂L/∂L = 1.00',
+              'Tape Step 2/6: Output Affine Vector gradient ∂L/∂y = y',
+              'Tape Step 3/6: Linear map intermediate gradient ∂L/∂(Wx) = ∂L/∂y · I',
+              'Tape Step 4/6: Bias vector gradient ∂L/∂b = y',
+              'Tape Step 5/6: Weight matrix gradient ∇_W L = y ⊗ x',
+              'Tape Step 6/6: Input vector gradient ∇_x L = Wᵀ y (Layer Jacobian Adjoint)'
+            ];
+            autogradStatusText.textContent = msgsA[state.autogradTapeStep] || 'Tape complete!';
+          }
+        }
+        syncAutogradPresetUI();
+        render();
+      });
+    }
+
+    if (btnResetAutograd) {
+      btnResetAutograd.addEventListener('click', function () {
+        state.ag_x1 = 1.5; state.ag_w1 = 0.8; state.ag_x2 = -1.0; state.ag_w2 = 1.2; state.ag_b = 0.3;
+        state.ag_yPred = 0.85; state.ag_yTrue = 0.50;
+        state.ag_aff_x1 = 1.0; state.ag_aff_x2 = -0.5; state.ag_aff_w11 = 1.2; state.ag_aff_w22 = 0.9;
+        state.autogradStep = 'idle';
+        state.autogradTapeStep = -1;
+
+        var setVal = function (id, v, fixed) {
+          var sl = $(id);
+          if (sl) sl.value = v;
+          var vl = $('val-' + id.replace('slider-', ''));
+          if (vl) vl.textContent = v.toFixed(fixed || 1);
+        };
+        setVal('slider-ag-x1', 1.5);
+        setVal('slider-ag-w1', 0.8);
+        setVal('slider-ag-x2', -1.0);
+        setVal('slider-ag-w2', 1.2);
+        setVal('slider-ag-b', 0.3);
+        setVal('slider-ag-ypred', 0.85, 2);
+        setVal('slider-ag-ytrue', 0.50, 2);
+        setVal('slider-ag-aff-x1', 1.0);
+        setVal('slider-ag-aff-x2', -0.5);
+        setVal('slider-ag-aff-w11', 1.2);
+        setVal('slider-ag-aff-w22', 0.9);
+
+        if (autogradStatusText) {
+          autogradStatusText.textContent = 'Values reset to standard tutorial presets. Click Forward Pass!';
+        }
+        syncAutogradPresetUI();
+        render();
+      });
+    }
 
     // Notes Topic Selector
     var notesSelect = $('notes-topic-select');
@@ -3525,6 +3919,8 @@
 
     if (newMode === 'loss') {
       initLossParticles();
+    } else if (newMode === 'autograd') {
+      if (typeof syncAutogradPresetUI === 'function') syncAutogradPresetUI();
     } else if (newMode === 'notes') {
       var sel = $('notes-topic-select');
       if (sel) updateNotesTopic(sel.value);
@@ -3601,6 +3997,7 @@
     initLossParticles();
     updateNotesTopic('matrix-transform');
     renderQuizQuestion();
+    if (typeof syncAutogradPresetUI === 'function') syncAutogradPresetUI();
     resizeCanvas();
   }
 

@@ -737,6 +737,7 @@ html, body {
   gap: 1.25rem;
 }
 
+.hidden,
 .mode-panel.hidden {
   display: none !important;
 }
