@@ -634,13 +634,14 @@
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
-
-      var labelPos = worldToScreen(v.x * 2.8, v.y * 2.8);
-      var slope = Math.abs(v.x) > 1e-4 ? (v.y / v.x).toFixed(2) : '∞';
-      ctx.fillStyle = colors[index % colors.length];
-      ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillText('Span(v' + (index + 1) + ') λ=' + ev.lambda.toFixed(2) + ' [y=' + slope + 'x]', labelPos.x + 6, labelPos.y - 6);
       ctx.restore();
+
+      var labelDist = 3.6;
+      var labelPos = worldToScreen(v.x * labelDist, v.y * labelDist);
+      var slope = Math.abs(v.x) > 1e-4 ? (v.y / v.x).toFixed(2) : '∞';
+      var text = 'Span(v' + (index + 1) + ') λ=' + ev.lambda.toFixed(2) + ' [y=' + slope + 'x]';
+      var angle = Math.atan2(v.y, v.x);
+      drawVectorLabel(text, labelPos.x, labelPos.y, colors[index % colors.length], angle, 12);
     });
   }
 
@@ -664,10 +665,9 @@
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
 
-      var labelPos = worldToScreen(nullVec.x * 2.5, nullVec.y * 2.5);
-      ctx.fillStyle = '#f87171';
-      ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillText('Kernel / Nullspace (Ax = 0)', labelPos.x + 8, labelPos.y - 8);
+      var labelPos = worldToScreen(nullVec.x * 3.4, nullVec.y * 3.4);
+      var angNull = Math.atan2(nullVec.y, nullVec.x);
+      drawVectorLabel('Kernel / Nullspace (Ax = 0)', labelPos.x, labelPos.y, '#ef4444', angNull, 12);
     }
 
     // Column Space (im A) - solid blue line
@@ -682,10 +682,9 @@
       ctx.lineTo(q2.x, q2.y);
       ctx.stroke();
 
-      var colLabelPos = worldToScreen(colVec.x * 3.5, colVec.y * 3.5);
-      ctx.fillStyle = '#38bdf8';
-      ctx.font = '700 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillText('Column Space / Range (All outputs)', colLabelPos.x + 8, colLabelPos.y + 16);
+      var colLabelPos = worldToScreen(colVec.x * 3.8, colVec.y * 3.8);
+      var angCol = Math.atan2(colVec.y, colVec.x);
+      drawVectorLabel('Column Space / Range im(A)', colLabelPos.x, colLabelPos.y, '#38bdf8', angCol, 12);
     }
     ctx.restore();
   }
@@ -1237,6 +1236,10 @@
     }
 
     // 1. Draw Static Reference 3D Axes
+    // 0. Ground Reference Grid Plane (Perspective Depth Grounding)
+    drawGroundGrid3D(pitchRad, yawRad, fov, originX, originY);
+
+    // 1. Draw Static Reference 3D Axes
     var axes3D = [
       { v: new Vector3D(2.5, 0, 0), col: 'rgba(244, 63, 94, 0.45)', name: 'X' },
       { v: new Vector3D(0, 2.5, 0), col: 'rgba(16, 185, 129, 0.45)', name: 'Y' },
@@ -1277,8 +1280,7 @@
       ctx.arc(sx, sy, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.font = '700 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillText(tr.name + ' [' + tr.v.x.toFixed(1) + ',' + tr.v.y.toFixed(1) + ',' + tr.v.z.toFixed(1) + ']', sx + 6, sy - 4);
+      drawVectorLabel(tr.name + ' [' + tr.v.x.toFixed(1) + ',' + tr.v.y.toFixed(1) + ',' + tr.v.z.toFixed(1) + ']', sx, sy, tr.col, 0, 6);
     });
 
     // 3. Render 3D Transformed Mesh (Cube) with Directional Lighting
@@ -1347,7 +1349,82 @@
       ctx.stroke();
     });
 
-    drawTopRightHUDTag('3D: Yaw ' + state.camYaw + '°, Pitch ' + state.camPitch + '° (' + (state.camOrthographic ? 'Ortho' : 'Persp') + ')');
+    // 4. Cube Corner Vertex Nodes
+    projectedPts.forEach(function (pt) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = det3D >= 0 ? '#c7d2fe' : '#fde68a';
+      ctx.fill();
+    });
+
+    drawOrientationGizmo3D(pitchRad, yawRad);
+  }
+
+  function drawGroundGrid3D(pitchRad, yawRad, fov, originX, originY) {
+    var groundY = -2.2;
+    var range = 3.6;
+    var step = 0.9;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+
+    for (var gx = -range; gx <= range + 1e-4; gx += step) {
+      var pStart = project3DTo2D(new Vector3D(gx, groundY, -range), pitchRad, yawRad, fov, state.camOrthographic);
+      var pEnd = project3DTo2D(new Vector3D(gx, groundY, range), pitchRad, yawRad, fov, state.camOrthographic);
+      ctx.beginPath();
+      ctx.moveTo(originX + pStart.x, originY + pStart.y);
+      ctx.lineTo(originX + pEnd.x, originY + pEnd.y);
+      ctx.stroke();
+    }
+    for (var gz = -range; gz <= range + 1e-4; gz += step) {
+      var pStart = project3DTo2D(new Vector3D(-range, groundY, gz), pitchRad, yawRad, fov, state.camOrthographic);
+      var pEnd = project3DTo2D(new Vector3D(range, groundY, gz), pitchRad, yawRad, fov, state.camOrthographic);
+      ctx.beginPath();
+      ctx.moveTo(originX + pStart.x, originY + pStart.y);
+      ctx.lineTo(originX + pEnd.x, originY + pEnd.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawOrientationGizmo3D(pitchRad, yawRad) {
+    var gx = 52;
+    var gy = viewHeight - 52;
+    var r = 26;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(gx, gy, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(11, 17, 32, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+
+    var axes = [
+      { v: new Vector3D(1, 0, 0), col: '#f43f5e', name: 'X' },
+      { v: new Vector3D(0, 1, 0), col: '#10b981', name: 'Y' },
+      { v: new Vector3D(0, 0, 1), col: '#06b6d4', name: 'Z' }
+    ];
+
+    axes.forEach(function (ax) {
+      var p = project3DTo2D(ax.v, pitchRad, yawRad, 1.0, true);
+      var tx = gx + p.x * 18;
+      var ty = gy + p.y * 18;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(tx, ty);
+      ctx.strokeStyle = ax.col;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = ax.col;
+      ctx.font = '700 9px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ax.name, tx + p.x * 6, ty + p.y * 6);
+    });
+    ctx.restore();
   }
 
   // ── LossLab Optimization Sandbox (Mode 6) ─────────────────────────────────
@@ -1378,22 +1455,7 @@
 
     drawBackgroundGrid();
 
-    // 1. Mathematically Aligned Energy Field Heatmap
-    var gridStep = 20;
-    ctx.save();
-    for (var px = 0; px < viewWidth; px += gridStep) {
-      for (var py = 0; py < viewHeight; py += gridStep) {
-        var w = screenToWorld(px + gridStep / 2, py + gridStep / 2);
-        var z = lossFn.evaluate(w.x, w.y);
-        var intensity = Math.min(1, Math.max(0, Math.log(Math.abs(z) + 1) / 3.8));
-        var rCol = Math.round(intensity * 130 + 15);
-        var bCol = Math.round((1 - intensity) * 150 + 40);
-        ctx.fillStyle = 'rgba(' + rCol + ', 35, ' + bCol + ', 0.18)';
-        ctx.fillRect(px, py, gridStep, gridStep);
-      }
-    }
-    ctx.restore();
-
+    drawLossFieldAndContours(lossFn);
     drawAxes();
 
     // 2. If running, step optimizers
@@ -1432,15 +1494,19 @@
         drawArrow(oSp.x, oSp.y, tipSp.x, tipSp.y, p.color, 1.8);
       }
 
-      // Particle Ball
+      // Particle Ball with Luminous Glow
       var curSp = worldToScreen(p.x, p.y);
+      ctx.save();
       ctx.beginPath();
-      ctx.fillStyle = p.color;
       ctx.arc(curSp.x, curSp.y, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 10;
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.6;
       ctx.stroke();
+      ctx.restore();
     });
 
     // 4. Update Telemetry Values & Step Count
@@ -1484,7 +1550,7 @@
       elHEigens.textContent = 'λ₁=' + lam1.toFixed(2) + ', λ₂=' + lam2.toFixed(2);
     }
     if (elHCond) {
-      elHCond.textContent = condNum > 100 ? 'κ > 100 (High Anisotropy)' : 'κ = ' + condNum.toFixed(2) + (condNum > 10 ? ' (Ill-Conditioned Ravine)' : ' (Well-Conditioned)');
+      elHCond.textContent = condNum > 100 ? '> 100 (Anisotropic)' : condNum.toFixed(2) + (condNum > 10 ? ' (Ill-Cond)' : ' (Well-Cond)');
       elHCond.style.color = condNum > 10 ? '#ef4444' : '#10b981';
     }
     if (badgeHClass) {
@@ -1503,11 +1569,92 @@
       }
     }
 
-    drawTopRightHUDTag('LossLab: ' + lossFn.name + ' (α=' + state.learningRate + ')');
-
     if (state.lossRunning) {
       requestAnimationFrame(render);
     }
+  }
+
+  function drawLossFieldAndContours(lossFn) {
+    // 1. Smooth energy field
+    var gridStep = 16;
+    ctx.save();
+    for (var px = 0; px < viewWidth; px += gridStep) {
+      for (var py = 0; py < viewHeight; py += gridStep) {
+        var w = screenToWorld(px + gridStep / 2, py + gridStep / 2);
+        var z = lossFn.evaluate(w.x, w.y);
+        var intensity = Math.min(1, Math.max(0, Math.log(Math.abs(z) + 1) / 3.6));
+        var rCol = Math.round(intensity * 140 + 12);
+        var gCol = Math.round(intensity * 25 + 8);
+        var bCol = Math.round((1 - intensity) * 160 + 35);
+        ctx.fillStyle = 'rgba(' + rCol + ', ' + gCol + ', ' + bCol + ', 0.22)';
+        ctx.fillRect(px, py, gridStep, gridStep);
+      }
+    }
+    ctx.restore();
+
+    // 2. Mathematically exact equipotential contour rings
+    ctx.save();
+    if (state.lossKey === 'bowl') {
+      var levels = [0.15, 0.4, 0.8, 1.5, 2.8, 4.5, 7.0, 10.5, 15.0];
+      levels.forEach(function (c, idx) {
+        var rx = Math.sqrt(2 * c) * state.scale;
+        var ry = Math.sqrt(c) * state.scale;
+        var o = worldToScreen(0, 0);
+        ctx.beginPath();
+        ctx.ellipse(o.x, o.y, rx, ry, 0, 0, Math.PI * 2);
+        var alpha = 0.15 + 0.04 * (idx % 3);
+        ctx.strokeStyle = 'rgba(56, 189, 248, ' + alpha + ')';
+        ctx.lineWidth = idx === 2 ? 1.5 : 1;
+        ctx.stroke();
+      });
+    } else if (state.lossKey === 'rosenbrock') {
+      ctx.beginPath();
+      for (var vx = -2.5; vx <= 2.5; vx += 0.05) {
+        var vy = vx * vx;
+        var sp = worldToScreen(vx, vy);
+        if (vx === -2.5) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      }
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+
+    // 3. Draw Global Optimum Bullseye Marker
+    var opt = { x: 0, y: 0, label: '(0, 0)' };
+    if (state.lossKey === 'rosenbrock') opt = { x: 1.0, y: 1.0, label: '(1, 1)' };
+    else if (state.lossKey === 'beale') opt = { x: 3.0, y: 0.5, label: '(3, 0.5)' };
+    else if (state.lossKey === 'saddle') opt = { x: 0, y: 0, label: 'Saddle (0, 0)' };
+
+    var osp = worldToScreen(opt.x, opt.y);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(osp.x, osp.y, 12, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(osp.x, osp.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#facc15';
+    ctx.shadowColor = 'rgba(250, 204, 21, 0.8)';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(osp.x - 7, osp.y); ctx.lineTo(osp.x + 7, osp.y);
+    ctx.moveTo(osp.x, osp.y - 7); ctx.lineTo(osp.x, osp.y + 7);
+    ctx.stroke();
+
+    drawVectorLabel('Min ' + opt.label, osp.x, osp.y, '#facc15', Math.PI / 4, 8);
+    ctx.restore();
   }
 
   // ── MicroGraph Autograd DAG Renderer (Mode 7) ─────────────────────────────
@@ -1660,7 +1807,7 @@
 
     // Save bounding boxes for mouse hover hit testing
     currentAutogradNodes = nodes.map(function (n) {
-      return { x: n.x, y: n.y, bw: bw, bh: bh, label: n.label, type: n.type };
+      return { x: n.x, y: n.y, bw: bw, bh: bh, label: n.label, type: n.type, val: n.val, grad: n.grad, desc: n.desc };
     });
 
     var activeTapeNodeIdx = null;
@@ -1806,8 +1953,6 @@
 
       ctx.restore();
     });
-
-    drawTopRightHUDTag('Autograd: Reverse-Mode DAG (Chain Rule)');
   }
 
   // ── Notes & Quiz Interactive Visual Blackboard ───────────────────────────
@@ -1816,7 +1961,6 @@
     var topic = state.currentNotesTopic || 'matrix-transform';
     var o = worldToScreen(0, 0);
 
-    drawTopRightHUDTag('Theory Vault: Blackboard');
     drawBackgroundGrid();
     drawAxes();
 
@@ -1824,11 +1968,19 @@
       var m = state.matrix;
       drawTransformedGrid(m);
       drawTransformedShape(m);
-      drawBasisVectors(m);
+      var o = worldToScreen(0, 0);
       var pI = worldToScreen(m.a, m.c);
       var pJ = worldToScreen(m.b, m.d);
-      drawVectorLabel('Col 1: î lands at [' + m.a.toFixed(1) + ', ' + m.c.toFixed(1) + ']', pI.x, pI.y, '#10b981');
-      drawVectorLabel('Col 2: ĵ lands at [' + m.b.toFixed(1) + ', ' + m.d.toFixed(1) + ']', pJ.x, pJ.y, '#8b5cf6');
+      var angI = Math.atan2(m.c, m.a);
+      var angJ = Math.atan2(m.d, m.b);
+
+      drawArrow(o.x, o.y, pI.x, pI.y, '#f43f5e', 2.8);
+      drawVectorHandle(pI.x, pI.y, '#f43f5e', 'i', false);
+      drawVectorLabel('Col 1: î → [' + m.a.toFixed(1) + ', ' + m.c.toFixed(1) + ']', pI.x, pI.y, '#f43f5e', angI, 5);
+
+      drawArrow(o.x, o.y, pJ.x, pJ.y, '#06b6d4', 2.8);
+      drawVectorHandle(pJ.x, pJ.y, '#06b6d4', 'j', false);
+      drawVectorLabel('Col 2: ĵ → [' + m.b.toFixed(1) + ', ' + m.d.toFixed(1) + ']', pJ.x, pJ.y, '#06b6d4', angJ, 5);
 
     } else if (topic === 'determinant') {
       var mDet = state.matrix;
@@ -2009,7 +2161,6 @@
 
   function renderQuizCanvas() {
     var o = worldToScreen(0, 0);
-    drawTopRightHUDTag('Viva Quiz: Q' + (currentQuizIdx + 1) + ' of ' + QUIZ_QUESTIONS.length + ' • Score ' + quizScore + '/' + QUIZ_QUESTIONS.length);
     drawAxes();
 
     // Pedagogical chalkboard visualization tailored for all 15 Viva questions
@@ -2040,7 +2191,7 @@
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
-      var rPix = state.zoom;
+      var rPix = state.scale;
       ctx.beginPath();
       ctx.arc(o.x, o.y, rPix, 0, Math.PI * 2);
       ctx.stroke();
@@ -2872,7 +3023,7 @@
     var pos = getMousePos(e);
     var world = screenToWorld(pos.x, pos.y);
 
-    hudCoords.innerHTML = 'Cursor: <strong>[' + world.x.toFixed(2) + ', ' + world.y.toFixed(2) + ']</strong>';
+    updateAdaptiveHUD(pos, world);
 
     if (!state.draggingTarget) {
       var hit = checkHitTarget(pos.x, pos.y);
@@ -3199,6 +3350,7 @@
     }
 
     render();
+    updateAdaptiveHUD();
   }
 
   // ── Viva Prep Quiz Engine ─────────────────────────────────────────────────
@@ -3467,6 +3619,7 @@
 
     // Update Summary Scorecard if applicable
     updateQuizScorecard();
+    updateAdaptiveHUD();
   }
 
   function checkQuizAnswer(selectedIdx, q) {
@@ -4492,11 +4645,11 @@
       var step1Btn = document.querySelector('.btn-mult-step[data-step="0.5"]');
       var step2Btn = document.querySelector('.btn-mult-step[data-step="1.0"]');
       if (state.multOrder === 'AB') {
-        if (step1Btn) step1Btn.textContent = '1: First Map (B)';
-        if (step2Btn) step2Btn.textContent = '2: Composite (AB)';
+        if (step1Btn) step1Btn.textContent = '1: Map B';
+        if (step2Btn) step2Btn.textContent = '2: Map AB';
       } else {
-        if (step1Btn) step1Btn.textContent = '1: First Map (A)';
-        if (step2Btn) step2Btn.textContent = '2: Composite (BA)';
+        if (step1Btn) step1Btn.textContent = '1: Map A';
+        if (step2Btn) step2Btn.textContent = '2: Map BA';
       }
       updateTelemetry();
       render();
@@ -4634,6 +4787,44 @@
     });
   }
 
+  function updateAdaptiveHUD(pos, world) {
+    var coordsEl = $('hud-coords');
+    if (!coordsEl) return;
+    var wX = world ? world.x : 0;
+    var wY = world ? world.y : 0;
+
+    if (state.mode === 'transform') {
+      coordsEl.innerHTML = '2D Cursor: <strong>[' + wX.toFixed(2) + ', ' + wY.toFixed(2) + ']</strong>';
+    } else if (state.mode === 'eigen') {
+      var pDeg = (state.eigenProbe.angle() * 180 / Math.PI);
+      if (pDeg < 0) pDeg += 360;
+      coordsEl.innerHTML = 'Probe θ: <strong>' + pDeg.toFixed(1) + '°</strong> • Cursor: <strong>[' + wX.toFixed(2) + ', ' + wY.toFixed(2) + ']</strong>';
+    } else if (state.mode === 'mult') {
+      var pct = Math.round(state.multT * 100);
+      coordsEl.innerHTML = 'Composition: <strong>' + state.multOrder + '</strong> • Tween (t): <strong>' + pct + '%</strong>';
+    } else if (state.mode === 'vectors') {
+      coordsEl.innerHTML = '2D Cursor: <strong>[' + wX.toFixed(2) + ', ' + wY.toFixed(2) + ']</strong>';
+    } else if (state.mode === '3d') {
+      coordsEl.innerHTML = '3D Camera Orbit: <strong>Yaw ' + Math.round(state.camYaw) + '°, Pitch ' + Math.round(state.camPitch) + '°</strong>';
+    } else if (state.mode === 'loss') {
+      var lFn = LossFunctions[state.lossKey] || LossFunctions.bowl;
+      var curVal = lFn.evaluate(wX, wY);
+      coordsEl.innerHTML = 'Landscape: <strong>' + lFn.name + '</strong> • L(cursor): <strong>' + formatSafe(curVal) + '</strong>';
+    } else if (state.mode === 'autograd') {
+      if (typeof state.hoverAutogradNode === 'number' && currentAutogradNodes && currentAutogradNodes[state.hoverAutogradNode]) {
+        var nd = currentAutogradNodes[state.hoverAutogradNode];
+        coordsEl.innerHTML = 'Node: <strong style="color:#38bdf8;">' + nd.label + '</strong> (val: ' + formatSafe(nd.val) + ', grad: ' + (nd.grad !== null && nd.grad !== undefined ? formatSafe(nd.grad) : 'pending') + ')';
+      } else {
+        coordsEl.innerHTML = 'MicroGraph DAG: <strong>' + state.autogradPreset.toUpperCase() + '</strong> (Status: <strong>' + state.autogradStep.toUpperCase() + '</strong>)';
+      }
+    } else if (state.mode === 'notes') {
+      var topicObj = (typeof LECTURE_NOTES !== 'undefined') ? LECTURE_NOTES[state.currentNotesTopic] : null;
+      coordsEl.innerHTML = 'Theory Vault: <strong style="color:#a5b4fc;">' + (topicObj ? topicObj.title : state.currentNotesTopic) + '</strong>';
+    } else if (state.mode === 'quiz') {
+      coordsEl.innerHTML = 'Viva Prep Quiz: <strong>Q' + (currentQuizIdx + 1) + ' of ' + (typeof QUIZ_QUESTIONS !== 'undefined' ? QUIZ_QUESTIONS.length : 15) + '</strong> • Score: <strong>' + quizScore + '/' + (typeof QUIZ_QUESTIONS !== 'undefined' ? QUIZ_QUESTIONS.length : 15) + '</strong>';
+    }
+  }
+
   function updateHUDTip(mode) {
     var tipEl = $('hud-tip');
     if (!tipEl) return;
@@ -4672,6 +4863,7 @@
     multDrawer.classList.toggle('active', newMode === 'mult');
 
     updateHUDTip(newMode);
+    updateAdaptiveHUD();
     updateTelemetry();
 
     if (newMode === 'loss') {

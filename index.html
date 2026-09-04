@@ -1131,23 +1131,22 @@
         <!-- Matrix Multiplication Stepper Drawer (Mode 3) -->
         <div id="mult-drawer" class="multiplication-drawer">
           <div class="mult-chain">
-            <span>Composition:</span>
             <div id="mult-matrix-a-badge" class="mult-matrix-mini">A [1.5, 0.5]</div>
             <span>×</span>
             <div id="mult-matrix-b-badge" class="mult-matrix-mini">B [0.8, -0.6]</div>
-            <button id="btn-swap-mult" class="btn-preset" style="padding: 0.3rem 0.6rem;">Order: AB</button>
-            <button id="btn-run-mult-sequence" class="btn-preset" style="padding: 0.3rem 0.6rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">▶ Play Sequence</button>
+            <button id="btn-swap-mult" class="btn-preset" style="padding: 0.25rem 0.5rem; font-size: 0.76rem;">Order: AB</button>
+            <button id="btn-run-mult-sequence" class="btn-preset" style="padding: 0.25rem 0.5rem; font-size: 0.76rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">▶ Play</button>
           </div>
 
-          <div class="mult-steps-buttons" style="display: flex; gap: 0.35rem; align-items: center;">
-            <button class="btn-micro btn-mult-step active" data-step="0">0: Identity (I)</button>
-            <button class="btn-micro btn-mult-step" data-step="0.5">1: First Map (B)</button>
-            <button class="btn-micro btn-mult-step" data-step="1.0">2: Composite (AB)</button>
+          <div class="mult-steps-buttons" style="display: flex; gap: 0.25rem; align-items: center;">
+            <button class="btn-micro btn-mult-step active" data-step="0" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">0: Identity (I)</button>
+            <button class="btn-micro btn-mult-step" data-step="0.5" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">1: Map B</button>
+            <button class="btn-micro btn-mult-step" data-step="1.0" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">2: Map AB</button>
           </div>
 
           <div class="mult-slider-container">
-            <div class="slider-header">
-              <span id="mult-step-label">Continuous Tween (t)</span>
+            <div class="slider-header" style="font-size: 0.72rem;">
+              <span id="mult-step-label">Tween (t)</span>
               <span id="val-mult-t" class="slider-val">0.00</span>
             </div>
             <input type="range" id="slider-mult" class="custom-slider" min="0" max="1" value="0" step="0.01">
