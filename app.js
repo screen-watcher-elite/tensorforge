@@ -464,11 +464,7 @@
       if (Math.abs(det) > 0.05) {
         var cx = (o.x + iPos.x + sum.x + jPos.x) / 4;
         var cy = (o.y + iPos.y + sum.y + jPos.y) / 4;
-        ctx.font = '600 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-        ctx.fillStyle = det > 0 ? '#67e8f9' : '#fcd34d';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Area: ' + Math.abs(det).toFixed(2), cx, cy);
+        drawVectorLabel('Area: ' + Math.abs(det).toFixed(2), cx, cy, det > 0 ? '#67e8f9' : '#fcd34d', 0, 10);
       }
 
     } else if (state.shape === 'circle') {
