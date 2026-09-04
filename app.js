@@ -2010,42 +2010,213 @@
 
   function renderQuizCanvas() {
     var o = worldToScreen(0, 0);
-    drawTopRightHUDTag('Viva Question ' + (currentQuizIdx + 1) + ' of ' + QUIZ_QUESTIONS.length);
+    drawTopRightHUDTag('Viva Quiz: Q' + (currentQuizIdx + 1) + ' of ' + QUIZ_QUESTIONS.length + ' • Score ' + quizScore + '/' + QUIZ_QUESTIONS.length);
     drawAxes();
 
-    // Render interactive pedagogical diagram tailored to the active question
+    // Pedagogical chalkboard visualization tailored for all 15 Viva questions
     if (currentQuizIdx === 0) {
-      // Question 1: Negative determinant (flipped space)
+      // Q1: Det < 0 (Orientation Inversion / Flipped Chirality)
       var m = new Matrix2x2(-1.2, 0.4, 0.4, 1.2);
       drawTransformedShape(m);
       drawBasisVectors(m);
-      drawVectorLabel('Mirrored Chirality: det(A) < 0 (Orientation Inverted)', o.x - 60, o.y - 90, '#f43f5e');
-    } else if (currentQuizIdx === 1 || currentQuizIdx === 3) {
-      // Question 2 or 4: Singular matrix / rank collapse
+      drawVectorLabel('det(A) = -1.60 < 0 (Chirality Mirrored)', o.x - 70, o.y - 100, '#f43f5e');
+    } else if (currentQuizIdx === 1) {
+      // Q2: λ = 0 (Singular Matrix, det = 0, dimension collapse)
       var m = new Matrix2x2(1.5, 0.75, 1.0, 0.5);
       drawRankNullityLines(m);
       drawBasisVectors(m);
-      drawVectorLabel('Dimension Squashed to 1D Line (det = 0, rank < 2)', o.x - 50, o.y - 80, '#ef4444');
+      drawVectorLabel('λ = 0 ⟹ det(A) = 0 (Squashed to 1D Line)', o.x - 70, o.y - 90, '#ef4444');
     } else if (currentQuizIdx === 2) {
-      // Question 3: Non-commutativity AB != BA
+      // Q3: Non-commutativity AB ≠ BA
       var p1 = worldToScreen(state.matrix.a, state.matrix.c);
       var p2 = worldToScreen(state.matrixB.a, state.matrixB.c);
       drawArrow(o.x, o.y, p1.x, p1.y, '#38bdf8', 2.5);
       drawArrow(o.x, o.y, p2.x, p2.y, '#f59e0b', 2.5);
-      drawVectorLabel('A·î', p1.x, p1.y, '#38bdf8');
-      drawVectorLabel('B·î', p2.x, p2.y, '#f59e0b');
-      drawVectorLabel('Order of transformations matters: AB ≠ BA', o.x - 80, o.y + 110, '#eab308');
+      drawVectorLabel('AB · î', p1.x, p1.y, '#38bdf8');
+      drawVectorLabel('BA · î', p2.x, p2.y, '#f59e0b');
+      drawVectorLabel('Non-Commutative: AB ≠ BA (Order Matters)', o.x - 90, o.y + 110, '#eab308');
+    } else if (currentQuizIdx === 3) {
+      // Q4: SVD Unit Circle mapped to Ellipse
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      var rPix = state.zoom;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, rPix, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      var m = new Matrix2x2(1.8, 0.5, 0.3, 1.1);
+      drawTransformedShape(m);
+      var sv1 = worldToScreen(1.87, 0.52);
+      drawArrow(o.x, o.y, sv1.x, sv1.y, '#10b981', 2.5);
+      drawVectorLabel('σ₁ u₁ (Major Axis)', sv1.x, sv1.y, '#10b981');
+      drawVectorLabel('SVD: Circle ↦ Ellipse (Semi-axes σ₁, σ₂)', o.x - 80, o.y - 110, '#38bdf8');
     } else if (currentQuizIdx === 4) {
-      // Question 5: Orthogonal vectors u . v = 0
-      var uPos = worldToScreen(2.5, 0);
-      var vPos = worldToScreen(0, 2.5);
+      // Q5: Diagonalization A = P D P⁻¹
+      var m = new Matrix2x2(1.6, 0.8, 0.8, 1.2);
+      drawTransformedShape(m);
+      drawEigenSpanLines(m);
+      drawBasisVectors(m);
+      drawVectorLabel('P = [ v₁ | v₂ ] (Columns are Eigenvectors)', o.x - 90, o.y - 100, '#a855f7');
+    } else if (currentQuizIdx === 5) {
+      // Q6: Rank-Nullity Theorem (Rank + Nullity = n)
+      var m = new Matrix2x2(1.4, 0.7, 0.8, 0.4);
+      drawRankNullityLines(m);
+      drawBasisVectors(m);
+      drawVectorLabel('Rank(1) + Nullity(1) = Dimension(2)', o.x - 80, o.y - 90, '#f59e0b');
+    } else if (currentQuizIdx === 6) {
+      // Q7: Orthogonal vectors u · v = 0 (θ = 90°)
+      var uPos = worldToScreen(2.5, 0.8);
+      var vPos = worldToScreen(-0.8, 2.5);
       drawArrow(o.x, o.y, uPos.x, uPos.y, '#f43f5e', 2.5);
       drawArrow(o.x, o.y, vPos.x, vPos.y, '#06b6d4', 2.5);
-      drawVectorLabel('u [2.5, 0]', uPos.x, uPos.y, '#f43f5e');
-      drawVectorLabel('v [0, 2.5]', vPos.x, vPos.y, '#06b6d4');
-      drawVectorLabel('Perpendicular: u · v = 0 (Angle θ = 90°)', o.x + 30, o.y - 60, '#10b981');
+      drawVectorLabel('u [2.5, 0.8]', uPos.x, uPos.y, '#f43f5e');
+      drawVectorLabel('v [-0.8, 2.5]', vPos.x, vPos.y, '#06b6d4');
+      drawVectorLabel('u · v = 0 ⟹ Perpendicular (θ = 90°)', o.x - 70, o.y - 95, '#10b981');
+    } else if (currentQuizIdx === 7) {
+      // Q8: Optimization Ravines: Adam vs SGD
+      ctx.save();
+      for (var r = 1; r <= 3; r++) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.08 * (4 - r)) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(o.x, o.y, r * 55, r * 110, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      var sgdPts = [[-2.2, 1.8], [-1.4, -1.5], [-0.8, 1.2], [-0.3, -0.9], [0, 0]];
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      sgdPts.forEach(function (p, i) {
+        var sp = worldToScreen(p[0], p[1]);
+        if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.stroke();
+
+      var adamPts = [[-2.2, 1.8], [-1.2, 0.9], [-0.5, 0.3], [0, 0]];
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      adamPts.forEach(function (p, i) {
+        var sp = worldToScreen(p[0], p[1]);
+        if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.stroke();
+      ctx.restore();
+
+      drawVectorLabel('SGD (Red Oscillation) vs Adam (Emerald Direct Momentum)', o.x - 120, o.y - 120, '#f59e0b');
+    } else if (currentQuizIdx === 8) {
+      // Q9: Power Iteration Aᵏx₀ → Dominant Eigenvector v₁
+      var x0 = worldToScreen(1.0, 2.2);
+      var x1 = worldToScreen(1.8, 1.8);
+      var x2 = worldToScreen(2.4, 1.2);
+      var vDom = worldToScreen(2.8, 0.7);
+      drawArrow(o.x, o.y, x0.x, x0.y, '#94a3b8', 1.5);
+      drawArrow(o.x, o.y, x1.x, x1.y, '#38bdf8', 2);
+      drawArrow(o.x, o.y, x2.x, x2.y, '#818cf8', 2.2);
+      drawArrow(o.x, o.y, vDom.x, vDom.y, '#f59e0b', 3);
+      drawVectorLabel('x₀', x0.x, x0.y, '#94a3b8');
+      drawVectorLabel('Ax₀', x1.x, x1.y, '#38bdf8');
+      drawVectorLabel('Dominant v₁', vDom.x, vDom.y, '#f59e0b');
+      drawVectorLabel('Power Iteration: Aᵏx₀ converges to Dominant Eigenvector', o.x - 110, o.y - 100, '#fde68a');
+    } else if (currentQuizIdx === 9) {
+      // Q10: Autograd Reverse-Mode Chain Rule
+      var n1 = worldToScreen(-2.0, 0.5);
+      var n2 = worldToScreen(0, 0.5);
+      var n3 = worldToScreen(2.0, 0.5);
+      drawArrow(n1.x, n1.y, n2.x, n2.y, '#38bdf8', 2.5);
+      drawArrow(n2.x, n2.y, n3.x, n3.y, '#38bdf8', 2.5);
+      drawArrow(n3.x, n3.y - 30, n2.x, n2.y - 30, '#f59e0b', 2.5);
+      drawArrow(n2.x, n2.y - 30, n1.x, n1.y - 30, '#f59e0b', 2.5);
+      drawVectorLabel('Forward: Activations (Cyan →)', o.x - 70, o.y + 40, '#38bdf8');
+      drawVectorLabel('Backward: ∂L/∂w = (∂L/∂y)·(∂y/∂w) (Amber ←)', o.x - 100, o.y + 70, '#f59e0b');
+    } else if (currentQuizIdx === 10) {
+      // Q11: Invertible System Ax = b
+      var m = new Matrix2x2(1.5, 0.4, 0.3, 1.2);
+      var xSol = { x: 1.2, y: 1.0 };
+      var bTarget = { x: m.a * xSol.x + m.b * xSol.y, y: m.c * xSol.x + m.d * xSol.y };
+      var spX = worldToScreen(xSol.x, xSol.y);
+      var spB = worldToScreen(bTarget.x, bTarget.y);
+      drawArrow(o.x, o.y, spX.x, spX.y, '#38bdf8', 2.5);
+      drawArrow(o.x, o.y, spB.x, spB.y, '#f59e0b', 2.5);
+      drawVectorLabel('Solution x = A⁻¹b', spX.x, spX.y, '#38bdf8');
+      drawVectorLabel('Target b', spB.x, spB.y, '#f59e0b');
+      drawVectorLabel('det(A) ≠ 0 ⟹ Unique Solution x exists for every b', o.x - 100, o.y - 100, '#10b981');
+    } else if (currentQuizIdx === 11) {
+      // Q12: Cross Product Parallelogram Area
+      var u = { x: 2.2, y: 0.5 };
+      var v = { x: 0.8, y: 2.0 };
+      var uScreen = worldToScreen(u.x, u.y);
+      var vScreen = worldToScreen(v.x, v.y);
+      var uvScreen = worldToScreen(u.x + v.x, u.y + v.y);
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(uScreen.x, uScreen.y);
+      ctx.lineTo(uvScreen.x, uvScreen.y);
+      ctx.lineTo(vScreen.x, vScreen.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      drawArrow(o.x, o.y, uScreen.x, uScreen.y, '#f43f5e', 2.5);
+      drawArrow(o.x, o.y, vScreen.x, vScreen.y, '#06b6d4', 2.5);
+      drawVectorLabel('u', uScreen.x, uScreen.y, '#f43f5e');
+      drawVectorLabel('v', vScreen.x, vScreen.y, '#06b6d4');
+      drawVectorLabel('Parallelogram Area = |u × v| = 4.00', o.x - 70, o.y - 100, '#f59e0b');
+    } else if (currentQuizIdx === 12) {
+      // Q13: 3D Pure Rotation Matrix det(R) = +1
+      var ax = worldToScreen(1.8, -0.6);
+      var ay = worldToScreen(0.5, 1.9);
+      var az = worldToScreen(-1.2, 1.2);
+      drawArrow(o.x, o.y, ax.x, ax.y, '#f43f5e', 2.5);
+      drawArrow(o.x, o.y, ay.x, ay.y, '#10b981', 2.5);
+      drawArrow(o.x, o.y, az.x, az.y, '#38bdf8', 2.5);
+      drawVectorLabel('R·î', ax.x, ax.y, '#f43f5e');
+      drawVectorLabel('R·ĵ', ay.x, ay.y, '#10b981');
+      drawVectorLabel('R·k̂', az.x, az.y, '#38bdf8');
+      drawVectorLabel('Pure 3D Rotation R ∈ SO(3): det(R) = +1 (Rigid Body)', o.x - 110, o.y - 100, '#6ee7b7');
+    } else if (currentQuizIdx === 13) {
+      // Q14: Hessian Saddle Point: λ₁ > 0, λ₂ < 0
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1.2;
+      for (var k = 1; k <= 3; k++) {
+        var d = k * 35;
+        ctx.beginPath();
+        ctx.moveTo(o.x - d, o.y - d * 0.8);
+        ctx.quadraticCurveTo(o.x, o.y - d * 0.2, o.x + d, o.y - d * 0.8);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(o.x - d * 0.8, o.y - d);
+        ctx.quadraticCurveTo(o.x - d * 0.2, o.y, o.x - d * 0.8, o.y + d);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      var up = worldToScreen(0, 1.8);
+      var down = worldToScreen(1.8, 0);
+      drawArrow(o.x, o.y, up.x, up.y, '#10b981', 2.5);
+      drawArrow(o.x, o.y, down.x, down.y, '#f43f5e', 2.5);
+      drawVectorLabel('λ₁ > 0 (Min Curve)', up.x, up.y, '#10b981');
+      drawVectorLabel('λ₂ < 0 (Max Curve)', down.x, down.y, '#f43f5e');
+      drawVectorLabel('Hessian ∇²L: Mixed Signs ⟹ Saddle Point', o.x - 90, o.y - 100, '#fde68a');
+    } else if (currentQuizIdx === 14) {
+      // Q15: Trace tr(A) = sum of eigenvalues
+      var m = new Matrix2x2(1.8, 0.6, 0.4, 1.2);
+      drawTransformedShape(m);
+      drawEigenSpanLines(m);
+      drawBasisVectors(m);
+      drawVectorLabel('tr(A) = a₁₁ + a₂₂ = 1.8 + 1.2 = 3.00', o.x - 80, o.y - 110, '#38bdf8');
+      drawVectorLabel('λ₁ + λ₂ = 2.10 + 0.90 = 3.00 (Invariant Sum)', o.x - 90, o.y + 110, '#10b981');
     } else {
-      // Other questions: General transformation geometry
       drawTransformedShape(state.matrix);
       drawBasisVectors(state.matrix);
       drawEigenSpanLines(state.matrix);
@@ -2914,6 +3085,7 @@
 
   var QUIZ_QUESTIONS = [
     {
+      category: '2D Transformations',
       q: '1. Geometrically, what does it mean if the determinant of a 2x2 matrix is negative (det(A) < 0)?',
       opts: [
         'A) Space expands infinitely',
@@ -2922,10 +3094,12 @@
         'D) The matrix is an identity matrix'
       ],
       correct: 2,
-      exp: 'Correct! A negative determinant indicates that orientation (chirality) has been flipped, like reflecting a sheet of paper.'
+      hint: 'Think about looking in a mirror or flipping a sheet of paper upside-down.',
+      exp: 'Step 1: det(A) measures the signed area scaling factor.\nStep 2: Positive determinant preserves counter-clockwise chirality.\nStep 3: Negative determinant inverts orientation (mirror reflection).'
     },
     {
-      q: '2. If an eigenvalue λ = 0 for a matrix A, what does this guarantee?',
+      category: 'Eigensystems',
+      q: '2. If an eigenvalue λ = 0 for a matrix A, what does this guarantee geometrically and algebraically?',
       opts: [
         'A) The matrix is symmetric',
         'B) The matrix is singular (det(A) = 0 and has no inverse)',
@@ -2933,9 +3107,11 @@
         'D) All eigenvalues must be zero'
       ],
       correct: 1,
-      exp: 'Correct! Because det(A) equals the product of all eigenvalues (det = λ₁ · λ₂). If any eigenvalue is 0, det(A) = 0 and A is singular.'
+      hint: 'Recall that det(A) equals the product of all its eigenvalues: det(A) = λ₁ · λ₂.',
+      exp: 'Step 1: det(A) = Π λᵢ. If λ₁ = 0, then det(A) = 0 · λ₂ = 0.\nStep 2: A zero determinant means the transformation flattens space into a lower dimension.\nStep 3: Hence, matrix A is singular and non-invertible.'
     },
     {
+      category: 'Matrix Composition',
       q: '3. Why is matrix multiplication generally non-commutative (AB ≠ BA)?',
       opts: [
         'A) Rounding errors in floating point arithmetic',
@@ -2944,9 +3120,11 @@
         'D) It is actually commutative for all matrices'
       ],
       correct: 1,
-      exp: 'Correct! The sequence of geometric transformations matters—rotating then shearing leaves points in a completely different spot than shearing then rotating.'
+      hint: 'Imagine rotating a card 90° then shifting it right, vs shifting it right first then rotating.',
+      exp: 'Step 1: Matrix multiplication represents sequential composition of linear maps.\nStep 2: The order of successive geometric maps matters in Euclidean space.\nStep 3: Rotating then shearing leaves vectors in different positions than shearing then rotating.'
     },
     {
+      category: 'Singular Value Decomposition',
       q: '4. What shape does a 2D unit circle always transform into under any linear transformation?',
       opts: [
         'A) A triangle',
@@ -2955,9 +3133,11 @@
         'D) A parabola'
       ],
       correct: 1,
-      exp: 'Correct! Under SVD, any linear transformation maps the unit circle to an ellipse whose semi-major and semi-minor axes equal the singular values σ₁ and σ₂.'
+      hint: 'SVD states that A = U Σ V^T decomposes any linear map into rotation, axial stretch, and rotation.',
+      exp: 'Step 1: By the SVD theorem, A = U Σ V^T.\nStep 2: The unit circle is rotated by V^T, stretched along orthogonal axes by singular values σ₁ and σ₂, and rotated by U.\nStep 3: The resulting geometric figure is always an ellipse.'
     },
     {
+      category: 'Diagonalization',
       q: '5. In the diagonalization formula A = PDP⁻¹, what do the columns of matrix P represent?',
       opts: [
         'A) The gradient vectors',
@@ -2966,9 +3146,11 @@
         'D) The standard basis vectors'
       ],
       correct: 1,
-      exp: 'Correct! Matrix P is constructed by placing the eigenvectors as its column vectors: P = [v₁ | v₂ | ... | vₙ].'
+      hint: 'P is the change-of-basis matrix into the coordinate system where A acts as pure coordinate scaling.',
+      exp: 'Step 1: When A acts on its eigenvectors vᵢ, Avᵢ = λᵢvᵢ.\nStep 2: Assembling columns P = [v₁ | v₂] diagonalizes the action into D = diag(λ₁, λ₂).\nStep 3: Thus, P consists of the linearly independent eigenvectors of A.'
     },
     {
+      category: 'Rank-Nullity Theorem',
       q: '6. According to the Rank-Nullity Theorem, if a 2x2 matrix has rank 1, what is the dimension of its nullspace (kernel)?',
       opts: [
         'A) 0',
@@ -2977,10 +3159,12 @@
         'D) Infinity'
       ],
       correct: 1,
-      exp: 'Correct! Rank + Nullity = n. Here 1 + Nullity = 2 => Nullity = 1 (a 1D line compressed to zero).'
+      hint: 'The fundamental theorem states: dim(Col A) + dim(Null A) = total number of columns (n).',
+      exp: 'Step 1: Rank-Nullity Theorem states rank(A) + nullity(A) = n.\nStep 2: Here n = 2 columns and rank = 1 (1D line output).\nStep 3: Nullity = 2 - 1 = 1 (a 1D line squashed completely to the zero vector).'
     },
     {
-      q: '7. What does the dot product u · v = 0 indicate about two non-zero vectors?',
+      category: 'Vector Geometry',
+      q: '7. What does the dot product u · v = 0 indicate about two non-zero vectors in ℝ²?',
       opts: [
         'A) They are parallel',
         'B) They are orthogonal (perpendicular, angle 90°)',
@@ -2988,10 +3172,12 @@
         'D) They have equal magnitude'
       ],
       correct: 1,
-      exp: 'Correct! u · v = ||u|| ||v|| cos(θ). If u · v = 0 and neither is zero, cos(θ) = 0, meaning θ = 90°.'
+      hint: 'The geometric definition of the dot product is u · v = ||u|| ||v|| cos(θ).',
+      exp: 'Step 1: u · v = ||u|| ||v|| cos(θ).\nStep 2: Since ||u|| ≠ 0 and ||v|| ≠ 0, u · v = 0 requires cos(θ) = 0.\nStep 3: Therefore, the angle θ between the vectors is 90° (orthogonal).'
     },
     {
-      q: '8. In Deep Learning, why is the Adam optimizer preferred over standard SGD on complex loss surfaces?',
+      category: 'LossLab Optimizers',
+      q: '8. In Deep Learning optimization, why is the Adam optimizer preferred over standard SGD on complex ravine surfaces?',
       opts: [
         'A) It does not require calculating gradients',
         'B) It combines Momentum (velocity) with RMSprop (adaptive per-parameter learning rate)',
@@ -2999,9 +3185,11 @@
         'D) It is slower and requires more memory'
       ],
       correct: 1,
-      exp: 'Correct! Adam uses running 1st moments (momentum) to overcome local plateaus and 2nd moments (adaptive scale) to equalize steep and shallow directions.'
+      hint: 'Adam tracks running 1st moments (momentum) and 2nd moments (uncentered variance).',
+      exp: 'Step 1: SGD violently oscillates across steep ravine walls with high condition numbers.\nStep 2: Adam dampens perpendicular oscillation via running first moment momentum.\nStep 3: Adam rescales step sizes along flat directions via running second moment variance.'
     },
     {
+      category: 'Numerical Linear Algebra',
       q: '9. What does the Power Iteration algorithm compute by repeatedly multiplying a vector by matrix A (Aᵏx)?',
       opts: [
         'A) The smallest eigenvalue',
@@ -3010,10 +3198,12 @@
         'D) The trace of A'
       ],
       correct: 1,
-      exp: 'Correct! Since the component along the largest eigenvalue grows as λ₁ᵏ, repeated multiplication naturally aligns any random vector with the dominant eigenvector.'
+      hint: 'The component along the largest eigenvalue grows exponentially as λ₁ᵏ.',
+      exp: 'Step 1: Any starting vector can be expressed in the eigenvector basis: x = c₁v₁ + c₂v₂.\nStep 2: Multiplying k times gives Aᵏx = c₁λ₁ᵏv₁ + c₂λ₂ᵏv₂ = λ₁ᵏ[c₁v₁ + c₂(λ₂/λ₁)ᵏv₂].\nStep 3: Since |λ₂/λ₁| < 1, as k → ∞ the vector aligns purely with dominant eigenvector v₁.'
     },
     {
-      q: '10. What is the fundamental mathematical tool used by Backpropagation to compute derivatives?',
+      category: 'MicroGraph Autograd',
+      q: '10. What is the fundamental calculus principle used by Reverse-Mode Autograd (Backpropagation)?',
       opts: [
         'A) Simpson’s Rule',
         'B) The Chain Rule of calculus applied in reverse topological order',
@@ -3021,56 +3211,216 @@
         'D) Cauchy-Schwarz Inequality'
       ],
       correct: 1,
-      exp: 'Correct! Backprop computes ∂L/∂w = (∂L/∂y) · (∂y/∂w) by flowing gradients backwards along the computational graph.'
+      hint: 'Gradients flow backwards from scalar loss output to leaf inputs.',
+      exp: 'Step 1: Neural networks are compositions of elementary mathematical operations.\nStep 2: The Chain Rule enables computing ∂L/∂w = (∂L/∂y) · (∂y/∂w).\nStep 3: Reverse topological traversal caches forward activations and accumulates upstream gradients in O(1) passes.'
+    },
+    {
+      category: 'Linear Systems & Invertibility',
+      q: '11. For a 2x2 matrix A, when does the linear system Ax = b have a unique solution for every vector b?',
+      opts: [
+        'A) Only when all entries are positive',
+        'B) When det(A) ≠ 0 (matrix is non-singular and invertible)',
+        'C) When trace(A) = 0',
+        'D) When A is a diagonal matrix'
+      ],
+      correct: 1,
+      hint: 'Consider whether the transformation maps ℝ² onto the entire 2D plane without collapsing dimensions.',
+      exp: 'Step 1: A system Ax = b has a unique solution x = A⁻¹b if and only if A has an inverse.\nStep 2: Invertibility requires det(A) ≠ 0 and full rank 2.\nStep 3: If det(A) = 0, columns are collinear and space collapses to 1D, making general solutions impossible.'
+    },
+    {
+      category: 'Vector Spaces & Cross Product',
+      q: '12. What does the magnitude of the 2D cross product |u × v| = |u_x v_y - u_y v_x| geometrically represent?',
+      opts: [
+        'A) The perimeter of the triangle formed by u and v',
+        'B) The area of the parallelogram spanned by vectors u and v',
+        'C) The sum of lengths ||u|| + ||v||',
+        'D) The projection of u onto v'
+      ],
+      correct: 1,
+      hint: 'Think of the determinant of the 2x2 matrix with u and v as its column vectors.',
+      exp: 'Step 1: |u × v| = ||u|| ||v|| |sin(θ)|.\nStep 2: In the spanned parallelogram, base = ||u|| and altitude = ||v|| |sin(θ)|.\nStep 3: Area = Base × Altitude = |u_x v_y - u_y v_x| = |det([u | v])|.'
+    },
+    {
+      category: '3D Transformations',
+      q: '13. What is the determinant of any 3D pure rotation matrix R ∈ SO(3)?',
+      opts: [
+        'A) 0',
+        'B) +1',
+        'C) -1',
+        'D) π'
+      ],
+      correct: 1,
+      hint: 'Pure rotations preserve volume and maintain right-handed coordinate chirality.',
+      exp: 'Step 1: Rotations are orthogonal matrices (Rᵀ R = I), so det(R)² = 1, meaning det(R) = ±1.\nStep 2: Special orthogonal group SO(3) preserves coordinate orientation (no reflections).\nStep 3: Therefore, det(R) = +1 strictly for all proper rigid-body rotations.'
+    },
+    {
+      category: 'Curvature & Hessians',
+      q: '14. In multivariate optimization, what does a Hessian matrix ∇²L with one positive and one negative eigenvalue indicate at a critical point?',
+      opts: [
+        'A) A global minimum',
+        'B) A saddle point (minimax point)',
+        'C) A global maximum',
+        'D) A flat plateau'
+      ],
+      correct: 1,
+      hint: 'Along one principal direction the surface curves upwards, while along the other it curves downwards.',
+      exp: 'Step 1: Eigenvalues of the Hessian represent principal curvatures of the loss surface.\nStep 2: λ₁ > 0 means concave up (local min along axis 1); λ₂ < 0 means concave down (local max along axis 2).\nStep 3: This mixed signature defines an indefinite saddle point.'
+    },
+    {
+      category: 'Matrix Invariants',
+      q: '15. For any square matrix A, how is the trace tr(A) related to its eigenvalues?',
+      opts: [
+        'A) tr(A) = λ₁ · λ₂ · ... · λₙ',
+        'B) tr(A) = λ₁ + λ₂ + ... + λₙ (sum of all eigenvalues)',
+        'C) tr(A) = max(λᵢ) - min(λᵢ)',
+        'D) tr(A) = 1 / det(A)'
+      ],
+      correct: 1,
+      hint: 'Remember the characteristic polynomial: det(λI - A) = λⁿ - tr(A)λⁿ⁻¹ + ... + (-1)ⁿ det(A).',
+      exp: 'Step 1: By Vieta’s formulas on the characteristic polynomial, the sum of roots equals tr(A).\nStep 2: tr(A) is invariant under similarity transformations: tr(PDP⁻¹) = tr(D).\nStep 3: In the diagonal basis, the diagonal elements are eigenvalues, hence tr(A) = Σ λᵢ.'
     }
   ];
 
   var currentQuizIdx = 0;
   var quizScore = 0;
-  var quizAnswered = false;
+  var quizStreak = 0;
+  var maxQuizStreak = 0;
+  var userQuizAnswers = {};
+  var quizHintVisible = false;
 
   function renderQuizQuestion() {
     var q = QUIZ_QUESTIONS[currentQuizIdx];
     var container = $('quiz-question-card');
     if (!container) return;
 
-    quizAnswered = false;
+    var isAnswered = !!userQuizAnswers[currentQuizIdx];
+    var recorded = userQuizAnswers[currentQuizIdx];
+
+    // Topic tag & Badges
+    if ($('quiz-topic-tag')) $('quiz-topic-tag').textContent = 'Topic: ' + q.category;
+    if ($('quiz-score-badge')) $('quiz-score-badge').textContent = 'Score: ' + quizScore + '/' + QUIZ_QUESTIONS.length;
+    if ($('quiz-streak-badge')) $('quiz-streak-badge').textContent = '🔥 Streak: ' + quizStreak;
+    if ($('quiz-hint-text')) $('quiz-hint-text').textContent = q.hint;
+
+    // Reset hint box visibility unless already open
+    var hintBox = $('quiz-hint-box');
+    if (hintBox) {
+      if (!quizHintVisible) hintBox.classList.add('hidden');
+      else hintBox.classList.remove('hidden');
+    }
+
+    // Build question prompt and options
     var html = '<div class="quiz-prompt">' + q.q + '</div><div class="quiz-options-list">';
     q.opts.forEach(function (opt, idx) {
-      html += '<div class="quiz-option" data-idx="' + idx + '">' + opt + '</div>';
+      var optClass = 'quiz-option';
+      if (isAnswered) {
+        if (idx === q.correct) optClass += ' correct';
+        else if (idx === recorded.selected) optClass += ' incorrect';
+      }
+      html += '<div class="' + optClass + '" data-idx="' + idx + '">' + opt + '</div>';
     });
-    html += '</div><div id="quiz-feedback-box" class="quiz-explanation hidden"></div>';
+    html += '</div>';
+
+    // Feedback explanation
+    if (isAnswered) {
+      var statusColor = recorded.isCorrect ? '#6ee7b7' : '#fca5a5';
+      var statusPrefix = recorded.isCorrect ? '✓ Correct!' : '✗ Incorrect.';
+      html += '<div id="quiz-feedback-box" class="quiz-explanation">';
+      html += '<strong style="color:' + statusColor + '">' + statusPrefix + '</strong> ' + q.hint;
+      html += '<div class="quiz-step-derivation">' + q.exp + '</div>';
+      html += '</div>';
+    } else {
+      html += '<div id="quiz-feedback-box" class="quiz-explanation hidden"></div>';
+    }
+
     container.innerHTML = html;
 
-    $('quiz-score-badge').textContent = 'Score: ' + quizScore + '/' + QUIZ_QUESTIONS.length;
-
-    // Attach option clicks
-    container.querySelectorAll('.quiz-option').forEach(function (el) {
-      el.addEventListener('click', function () {
-        if (quizAnswered) return;
-        var selectedIdx = parseInt(this.getAttribute('data-idx'), 10);
-        checkQuizAnswer(selectedIdx, q);
+    // Attach option clicks if not answered yet
+    if (!isAnswered) {
+      container.querySelectorAll('.quiz-option').forEach(function (el) {
+        el.addEventListener('click', function () {
+          var selectedIdx = parseInt(this.getAttribute('data-idx'), 10);
+          checkQuizAnswer(selectedIdx, q);
+        });
       });
-    });
+    }
+
+    // Update Summary Scorecard if applicable
+    updateQuizScorecard();
   }
 
   function checkQuizAnswer(selectedIdx, q) {
-    quizAnswered = true;
-    var container = $('quiz-question-card');
-    var opts = container.querySelectorAll('.quiz-option');
-    var feedbackBox = $('quiz-feedback-box');
-
-    if (selectedIdx === q.correct) {
-      opts[selectedIdx].classList.add('correct');
+    var isCorrect = (selectedIdx === q.correct);
+    if (isCorrect) {
       quizScore++;
-      feedbackBox.innerHTML = '<strong style="color:#6ee7b7">✓ Correct!</strong> ' + q.exp;
+      quizStreak++;
+      if (quizStreak > maxQuizStreak) maxQuizStreak = quizStreak;
     } else {
-      opts[selectedIdx].classList.add('incorrect');
-      opts[q.correct].classList.add('correct');
-      feedbackBox.innerHTML = '<strong style="color:#fca5a5">✗ Incorrect.</strong> ' + q.exp;
+      quizStreak = 0;
     }
-    feedbackBox.classList.remove('hidden');
-    $('quiz-score-badge').textContent = 'Score: ' + quizScore + '/' + QUIZ_QUESTIONS.length;
+
+    userQuizAnswers[currentQuizIdx] = {
+      selected: selectedIdx,
+      isCorrect: isCorrect
+    };
+
+    renderQuizQuestion();
+    render();
+  }
+
+  function updateQuizScorecard() {
+    var summaryCard = $('quiz-summary-card');
+    if (!summaryCard) return;
+
+    var answeredCount = Object.keys(userQuizAnswers).length;
+    if (answeredCount < 3) {
+      summaryCard.classList.add('hidden');
+      return;
+    }
+
+    var total = QUIZ_QUESTIONS.length;
+    var pct = Math.round((quizScore / total) * 100);
+    var grade = 'A+ (Linear Algebra Master)';
+    var gradeColor = '#10b981';
+
+    if (pct < 60) {
+      grade = 'C (Needs Revision)';
+      gradeColor = '#f59e0b';
+    } else if (pct < 75) {
+      grade = 'B (Proficient Student)';
+      gradeColor = '#38bdf8';
+    } else if (pct < 90) {
+      grade = 'A (Advanced Practitioner)';
+      gradeColor = '#6ee7b7';
+    }
+
+    summaryCard.classList.remove('hidden');
+    summaryCard.innerHTML =
+      '<div class="quiz-scorecard-header">' +
+        '<span style="font-size: 0.76rem; font-weight: 600; color: #cbd5e1;">Mastery Scorecard (' + answeredCount + '/' + total + ' Completed)</span>' +
+        '<span class="quiz-scorecard-grade" style="color:' + gradeColor + '">' + grade.split(' ')[0] + '</span>' +
+      '</div>' +
+      '<div style="font-size: 0.72rem; color: ' + gradeColor + '; font-weight: 500; margin-bottom: 0.35rem;">' + grade + '</div>' +
+      '<div class="quiz-stat-grid">' +
+        '<div class="quiz-stat-pill"><span>Score</span><strong>' + quizScore + '/' + total + '</strong></div>' +
+        '<div class="quiz-stat-pill"><span>Accuracy</span><strong>' + pct + '%</strong></div>' +
+        '<div class="quiz-stat-pill"><span>Max Streak</span><strong>🔥 ' + maxQuizStreak + '</strong></div>' +
+      '</div>' +
+      '<button id="btn-quiz-restart" class="btn-micro" style="width: 100%; margin-top: 0.4rem; padding: 0.35rem; color: #a7f3d0; border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.1);">↺ Reset &amp; Retake Quiz</button>';
+
+    var btnRestart = $('btn-quiz-restart');
+    if (btnRestart) {
+      btnRestart.addEventListener('click', function () {
+        currentQuizIdx = 0;
+        quizScore = 0;
+        quizStreak = 0;
+        maxQuizStreak = 0;
+        userQuizAnswers = {};
+        quizHintVisible = false;
+        renderQuizQuestion();
+        render();
+      });
+    }
   }
 
   // ── Presets & Transformations ─────────────────────────────────────────────
@@ -3712,12 +4062,36 @@
       });
     }
 
-    // Viva Quiz Next Button
+    // Viva Quiz Navigation & Action Buttons
     var btnQuizNext = $('btn-quiz-next');
     if (btnQuizNext) {
       btnQuizNext.addEventListener('click', function () {
         currentQuizIdx = (currentQuizIdx + 1) % QUIZ_QUESTIONS.length;
+        quizHintVisible = false;
         renderQuizQuestion();
+        render();
+      });
+    }
+
+    var btnQuizPrev = $('btn-quiz-prev');
+    if (btnQuizPrev) {
+      btnQuizPrev.addEventListener('click', function () {
+        currentQuizIdx = (currentQuizIdx - 1 + QUIZ_QUESTIONS.length) % QUIZ_QUESTIONS.length;
+        quizHintVisible = false;
+        renderQuizQuestion();
+        render();
+      });
+    }
+
+    var btnQuizHint = $('btn-quiz-hint');
+    if (btnQuizHint) {
+      btnQuizHint.addEventListener('click', function () {
+        quizHintVisible = !quizHintVisible;
+        var hintBox = $('quiz-hint-box');
+        if (hintBox) {
+          if (quizHintVisible) hintBox.classList.remove('hidden');
+          else hintBox.classList.add('hidden');
+        }
       });
     }
 

@@ -1207,13 +1207,64 @@ html, body {
 }
 
 .quiz-explanation {
-  background: rgba(10, 16, 30, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 16, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-sm);
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.8rem;
   font-size: 0.74rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #cbd5e1;
+}
+
+.quiz-step-derivation {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  color: #94a3b8;
+  white-space: pre-line;
+}
+
+.quiz-scorecard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.quiz-scorecard-grade {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #10b981;
+}
+
+.quiz-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin: 0.45rem 0;
+}
+
+.quiz-stat-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem;
+  text-align: center;
+}
+
+.quiz-stat-pill span {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--text-muted);
+}
+
+.quiz-stat-pill strong {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  font-family: var(--font-mono);
 }
 
 /* ── LossLab & Autograd Buttons ──────────────────────────────────────────── */

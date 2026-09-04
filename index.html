@@ -1032,12 +1032,38 @@
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>🎓</span> Viva Prep Quiz</h2>
-              <span id="quiz-score-badge" class="telemetry-badge badge-det-pos">Score: 0/10</span>
+              <div style="display: flex; gap: 0.35rem; align-items: center;">
+                <span id="quiz-streak-badge" class="telemetry-badge" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fde68a;">🔥 Streak: 0</span>
+                <span id="quiz-score-badge" class="telemetry-badge badge-det-pos">Score: 0/15</span>
+              </div>
             </div>
+
+            <!-- Quiz Topic & Difficulty Tag Bar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+              <span id="quiz-topic-tag" class="telemetry-badge" style="background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.4); color: #c7d2fe; font-size: 0.70rem;">Topic: 2D Transformations</span>
+              <button id="btn-quiz-hint" class="btn-micro" style="color: #fde68a; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1);">💡 Clue Hint</button>
+            </div>
+
+            <!-- Interactive Clue Box (collapsible) -->
+            <div id="quiz-hint-box" class="math-formula-box hidden" style="margin-bottom: 0.5rem; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25);">
+              <div class="formula-title" style="color: #fde68a; font-size: 0.72rem;">💡 Pedagogical Clue:</div>
+              <div id="quiz-hint-text" style="font-size: 0.74rem; line-height: 1.35; color: #fef3c7;"></div>
+            </div>
+
             <div id="quiz-question-card" class="quiz-container">
               <!-- Dynamically populated question -->
             </div>
-            <button id="btn-quiz-next" class="btn-preset" style="margin-top: 0.6rem; width: 100%;">Next Question →</button>
+
+            <!-- Navigation and Action Buttons Grid -->
+            <div class="preset-grid" style="grid-template-columns: 1fr 1.2fr; margin-top: 0.6rem; gap: 0.4rem;">
+              <button id="btn-quiz-prev" class="btn-preset">⏮ Prev</button>
+              <button id="btn-quiz-next" class="btn-preset" style="background: rgba(99, 102, 241, 0.2); border-color: var(--accent-primary); color: #c7d2fe;">Next Question →</button>
+            </div>
+
+            <!-- Completion Mastery Scorecard Card -->
+            <div id="quiz-summary-card" class="theory-note-card hidden" style="margin-top: 0.65rem; border-color: rgba(16, 185, 129, 0.4); background: rgba(6, 78, 59, 0.15);">
+              <!-- Dynamically populated on finish -->
+            </div>
           </section>
         </div>
 
