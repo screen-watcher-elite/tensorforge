@@ -265,6 +265,21 @@
     return Math.abs(col1.dot(col2)) < 1e-4;
   };
 
+  Matrix2x2.prototype.rayleighQuotient = function (vec) {
+    var v = vec || new Vector2D(1, 0);
+    var normSq = v.magnitudeSq();
+    if (normSq < EPSILON) return 0;
+    var av = this.apply(v);
+    return v.dot(av) / normSq;
+  };
+
+  Matrix2x2.prototype.gershgorinDiscs = function () {
+    return {
+      disc1: { center: this.a, radius: Math.abs(this.b) },
+      disc2: { center: this.d, radius: Math.abs(this.c) }
+    };
+  };
+
   Matrix2x2.lerp = function (m1, m2, t) {
     return new Matrix2x2(
       m1.a + (m2.a - m1.a) * t,
@@ -325,12 +340,20 @@
 
       result.eigenvectors = [v1, v2];
     } else {
-      // Complex conjugate pair: α ± βi
+      // Complex conjugate pair: α ± βi = r * e^(±iθ)
       var realPart = tr / 2;
       var imagPart = Math.sqrt(-discriminant) / 2;
+      var modulus = Math.sqrt(realPart * realPart + imagPart * imagPart);
+      var phaseRad = Math.atan2(imagPart, realPart);
+      var phaseDeg = (phaseRad * 180) / Math.PI;
+
+      result.modulus = modulus;
+      result.phaseRad = phaseRad;
+      result.phaseDeg = phaseDeg;
+
       result.eigenvalues = [
-        { real: realPart, imag: imagPart, isReal: false },
-        { real: realPart, imag: -imagPart, isReal: false }
+        { real: realPart, imag: imagPart, isReal: false, r: modulus, theta: phaseRad },
+        { real: realPart, imag: -imagPart, isReal: false, r: modulus, theta: -phaseRad }
       ];
       result.eigenvectors = []; // No real invariant directions
     }

@@ -48,6 +48,9 @@
     solveB: new Vector2D(2.0, 1.5),
     showSolver: true,
     eigenProbe: new Vector2D(1.0, 0.0),
+    showSpiral: true,
+    showGershgorin: true,
+    magneticSnap: true,
     vecU: new Vector2D(2.0, 1.0),
     vecV: new Vector2D(1.0, 2.0),
 
@@ -573,9 +576,10 @@
       ctx.stroke();
 
       var labelPos = worldToScreen(v.x * 2.8, v.y * 2.8);
+      var slope = Math.abs(v.x) > 1e-4 ? (v.y / v.x).toFixed(2) : '∞';
       ctx.fillStyle = colors[index % colors.length];
       ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-      ctx.fillText('Span(v' + (index + 1) + ') λ=' + ev.lambda.toFixed(2), labelPos.x + 6, labelPos.y - 6);
+      ctx.fillText('Span(v' + (index + 1) + ') λ=' + ev.lambda.toFixed(2) + ' [y=' + slope + 'x]', labelPos.x + 6, labelPos.y - 6);
       ctx.restore();
     });
   }
@@ -631,6 +635,71 @@
   function drawEigenHunter(matrix) {
     var o = worldToScreen(0, 0);
 
+    // 1. Gershgorin Discs Overlay (if enabled)
+    if (state.showGershgorin) {
+      var g = matrix.gershgorinDiscs();
+      var d1Center = worldToScreen(g.disc1.center, 0);
+      var d1Rad = g.disc1.radius * state.scale;
+      var d2Center = worldToScreen(g.disc2.center, 0);
+      var d2Rad = g.disc2.radius * state.scale;
+
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.2;
+
+      // Disc 1
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.beginPath();
+      ctx.arc(d1Center.x, d1Center.y, Math.max(3, d1Rad), 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+
+      // Disc 2
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.08)';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+      ctx.beginPath();
+      ctx.arc(d2Center.x, d2Center.y, Math.max(3, d2Rad), 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // 2. Complex Spiral Phase Portrait (when discriminant < 0)
+    var eigens = Engine.solveEigensystem(matrix);
+    if (!eigens.isReal && state.showSpiral) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+
+      var currV = state.eigenProbe.clone();
+      var p0 = worldToScreen(currV.x, currV.y);
+      ctx.moveTo(p0.x, p0.y);
+
+      for (var s = 1; s <= 32; s++) {
+        currV = matrix.apply(currV);
+        if (currV.magnitude() > 14) break;
+        var pNext = worldToScreen(currV.x, currV.y);
+        ctx.lineTo(pNext.x, pNext.y);
+      }
+      ctx.stroke();
+
+      // Orbit milestone dots
+      currV = state.eigenProbe.clone();
+      for (var s2 = 1; s2 <= 8; s2++) {
+        currV = matrix.apply(currV);
+        if (currV.magnitude() > 14) break;
+        var pDot = worldToScreen(currV.x, currV.y);
+        ctx.fillStyle = s2 % 2 === 0 ? '#38bdf8' : '#c084fc';
+        ctx.beginPath();
+        ctx.arc(pDot.x, pDot.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      drawTopRightHUDTag('Complex Spiral Phase Portrait (r e^{iθ})');
+    }
+
+    // 3. Unit circle guide
     ctx.save();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.setLineDash([3, 3]);
@@ -1402,6 +1471,72 @@
       }
     }
 
+    // Complex Phase Portrait telemetry
+    var phaseCard = $('complex-phase-card');
+    if (phaseCard) {
+      phaseCard.classList.toggle('hidden', eigens.isReal);
+      if (!eigens.isReal && eigens.modulus) {
+        var rVal = eigens.modulus;
+        $('complex-modulus-text').innerHTML = 'Modulus r = √(α²+β²) = <strong>' + rVal.toFixed(2) + '</strong> (radial growth per step)';
+        $('complex-phase-text').innerHTML = 'Rotation Phase θ = <strong>' + eigens.phaseDeg.toFixed(1) + '°</strong> per step';
+        var stabEl = $('complex-stability-text');
+        if (stabEl) {
+          if (Math.abs(rVal - 1.0) < 0.05) {
+            stabEl.innerHTML = 'Dynamics: <strong style="color:#6ee7b7;">Elliptic Center Orbit (Stable Periodicity)</strong>';
+          } else if (rVal < 1.0) {
+            stabEl.innerHTML = 'Dynamics: <strong style="color:#38bdf8;">Spiral Sink / Attractor (Contracting to Origin)</strong>';
+          } else {
+            stabEl.innerHTML = 'Dynamics: <strong style="color:#f87171;">Spiral Source / Repeller (Expanding Outwards)</strong>';
+          }
+        }
+      }
+    }
+
+    // Invariant Identities (Trace & Determinant)
+    var sumEl = $('eigen-sum-val');
+    var prodEl = $('eigen-prod-val');
+    if (sumEl && prodEl) {
+      if (eigens.isReal) {
+        var s = eigens.eigenvalues[0].value + eigens.eigenvalues[1].value;
+        var p = eigens.eigenvalues[0].value * eigens.eigenvalues[1].value;
+        sumEl.innerHTML = s.toFixed(2) + ' == ' + tr.toFixed(2) + ' ✓';
+        prodEl.innerHTML = p.toFixed(2) + ' == ' + det.toFixed(2) + ' ✓';
+      } else {
+        var aReal = eigens.eigenvalues[0].real;
+        var aImag = eigens.eigenvalues[0].imag;
+        var sComplex = aReal * 2;
+        var pComplex = aReal * aReal + aImag * aImag;
+        sumEl.innerHTML = sComplex.toFixed(2) + ' == ' + tr.toFixed(2) + ' ✓';
+        prodEl.innerHTML = pComplex.toFixed(2) + ' == ' + det.toFixed(2) + ' ✓';
+      }
+    }
+
+    // Rayleigh Quotient Telemetry
+    var rayleighEl = $('rayleigh-val');
+    var rayleighHint = $('rayleigh-error-hint');
+    if (rayleighEl) {
+      var rVal = m.rayleighQuotient(state.eigenProbe);
+      rayleighEl.textContent = rVal.toFixed(3);
+      if (rayleighHint) {
+        if (eigens.isReal) {
+          var domLambda = Math.max(eigens.eigenvalues[0].value, eigens.eigenvalues[1].value);
+          var err = Math.abs(rVal - domLambda);
+          rayleighHint.innerHTML = 'Dominant eigenvalue λ₁ = ' + domLambda.toFixed(2) + ' (Error: ' + err.toFixed(3) + ')';
+        } else {
+          rayleighHint.textContent = 'Quadratic form R(x) oscillating on complex spectrum';
+        }
+      }
+    }
+
+    // Gershgorin Discs Telemetry
+    var g = m.gershgorinDiscs();
+    var disc1El = $('gershgorin-disc1-text');
+    var disc2El = $('gershgorin-disc2-text');
+    if (disc1El && disc2El) {
+      disc1El.innerHTML = '<strong>Disc 1:</strong> Center a = ' + m.a.toFixed(2) + ', Radius |b| = ' + Math.abs(m.b).toFixed(2);
+      disc2El.innerHTML = '<strong>Disc 2:</strong> Center d = ' + m.d.toFixed(2) + ', Radius |c| = ' + Math.abs(m.c).toFixed(2);
+    }
+
     // Update Custom Vector Output T(v) = Av
     var transVecEl = $('readout-trans-vec');
     if (transVecEl) {
@@ -1632,12 +1767,34 @@
       render();
     } else if (state.draggingTarget === 'probe') {
       var ang = Math.atan2(world.y, world.x);
+      if (state.magneticSnap) {
+        var eigens = Engine.solveEigensystem(state.matrix);
+        if (eigens.isReal && eigens.eigenvectors.length > 0) {
+          for (var evIdx = 0; evIdx < eigens.eigenvectors.length; evIdx++) {
+            var ev = eigens.eigenvectors[evIdx].vector;
+            var tAng = Math.atan2(ev.y, ev.x);
+            var diffs = [
+              Math.abs(ang - tAng),
+              Math.abs(ang - (tAng + Math.PI)),
+              Math.abs(ang - (tAng - Math.PI)),
+              Math.abs(ang - (tAng + 2 * Math.PI)),
+              Math.abs(ang - (tAng - 2 * Math.PI))
+            ];
+            var minDiff = Math.min.apply(null, diffs);
+            if (minDiff < (4.5 * Math.PI) / 180) {
+              ang = tAng; // Snap magnetically!
+              break;
+            }
+          }
+        }
+      }
       state.eigenProbe = new Vector2D(Math.cos(ang), Math.sin(ang));
       var deg = Math.round(((ang * 180) / Math.PI + 360) % 360);
       var sAngle = $('slider-probe-angle');
       var vAngle = $('val-probe-angle');
       if (sAngle) sAngle.value = deg;
       if (vAngle) vAngle.textContent = deg + '°';
+      updateTelemetry();
       render();
     } else if (state.draggingTarget === 'u') {
       state.vecU.x = sx; state.vecU.y = sy;
@@ -2379,6 +2536,63 @@
           state.eigenProbe = new Vector2D(Math.cos(rad), Math.sin(rad));
           render();
         }, 25);
+      });
+    }
+
+    // Loop 2: Complex Spiral, Rayleigh Quotient, Magnetic Snap & Gershgorin Listeners
+    var btnMagneticSnap = $('btn-magnetic-snap');
+    if (btnMagneticSnap) {
+      btnMagneticSnap.addEventListener('click', function () {
+        state.magneticSnap = !state.magneticSnap;
+        this.textContent = state.magneticSnap ? 'Magnetic Snap' : 'Free Sweep';
+        this.className = state.magneticSnap ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-neg';
+      });
+    }
+
+    var btnStepPower = $('btn-step-power');
+    if (btnStepPower) {
+      btnStepPower.addEventListener('click', function () {
+        var nextV = state.matrix.apply(state.eigenProbe);
+        if (nextV.magnitude() > Engine.EPSILON) {
+          state.eigenProbe = nextV.normalize();
+          var ang = Math.atan2(state.eigenProbe.y, state.eigenProbe.x);
+          var deg = Math.round(((ang * 180) / Math.PI + 360) % 360);
+          if (sliderProbeAngle) sliderProbeAngle.value = deg;
+          if (valProbeAngle) valProbeAngle.textContent = deg + '°';
+          updateTelemetry();
+          render();
+        }
+      });
+    }
+
+    var btnResetPower = $('btn-reset-power');
+    if (btnResetPower) {
+      btnResetPower.addEventListener('click', function () {
+        state.eigenProbe = new Vector2D(1.0, 0.0);
+        if (sliderProbeAngle) sliderProbeAngle.value = 0;
+        if (valProbeAngle) valProbeAngle.textContent = '0°';
+        updateTelemetry();
+        render();
+      });
+    }
+
+    var btnToggleGershgorin = $('btn-toggle-gershgorin');
+    if (btnToggleGershgorin) {
+      btnToggleGershgorin.addEventListener('click', function () {
+        state.showGershgorin = !state.showGershgorin;
+        this.textContent = state.showGershgorin ? 'Visible' : 'Hidden';
+        this.className = state.showGershgorin ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-neg';
+        render();
+      });
+    }
+
+    var btnToggleSpiral = $('btn-toggle-spiral');
+    if (btnToggleSpiral) {
+      btnToggleSpiral.addEventListener('click', function () {
+        state.showSpiral = !state.showSpiral;
+        this.textContent = state.showSpiral ? 'Show Orbit' : 'Hide Orbit';
+        this.className = state.showSpiral ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-neg';
+        render();
       });
     }
 
