@@ -33,6 +33,7 @@
   Vector2D.prototype.sub = function (v) {
     return new Vector2D(this.x - v.x, this.y - v.y);
   };
+  Vector2D.prototype.subtract = Vector2D.prototype.sub;
 
   Vector2D.prototype.scale = function (s) {
     return new Vector2D(this.x * s, this.y * s);

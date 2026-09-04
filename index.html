@@ -108,6 +108,33 @@
             </div>
           </section>
 
+          <!-- Custom Vector (v) & Output T(v) = Av -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🎯</span> Custom Vector (v)</h2>
+              <button id="btn-toggle-custom-vec" class="telemetry-badge badge-det-pos" style="cursor: pointer; border: none;">Visible</button>
+            </div>
+            <div class="vector-inputs-grid" style="grid-template-columns: 1fr; margin-bottom: 0.5rem;">
+              <div class="vec-input-card">
+                <div class="vec-coords-row">
+                  <span style="font-weight: 700; color: #10b981;">v:</span>
+                  <span>x:</span><input type="number" id="vec-custom-x" class="matrix-input" step="0.25" value="1.00">
+                  <span>y:</span><input type="number" id="vec-custom-y" class="matrix-input" step="0.25" value="1.00">
+                </div>
+              </div>
+            </div>
+            <div class="vector-readout-row" style="font-size: 0.78rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0 0.2rem;">
+              <span>Output T(v) = Av:</span>
+              <strong id="readout-trans-vec" style="color: #38bdf8; font-family: var(--font-mono);">[2.00, 1.70]</strong>
+            </div>
+            <div class="preset-grid" style="grid-template-columns: repeat(4, 1fr);">
+              <button class="btn-preset btn-vec-preset" data-vx="1" data-vy="1">[1, 1]</button>
+              <button class="btn-preset btn-vec-preset" data-vx="2" data-vy="0">[2, 0]</button>
+              <button class="btn-preset btn-vec-preset" data-vx="0" data-vy="2">[0, 2]</button>
+              <button class="btn-preset btn-vec-preset" data-vx="-1" data-vy="1">[-1, 1]</button>
+            </div>
+          </section>
+
           <!-- Shape To Transform -->
           <section class="sidebar-section">
             <div class="section-header">
@@ -200,7 +227,21 @@
             <div class="section-header">
               <h2 class="section-title"><span>🎯</span> Eigenvector Scanner</h2>
             </div>
-            <p class="section-hint">Drag the unit vector on the canvas. When x and Ax align on the same line, an eigenvector is discovered!</p>
+            <p class="section-hint">Drag probe vector x on the canvas or sweep its angle below to hunt for invariant lines where Ax = λx.</p>
+
+            <div class="slider-group" style="margin-bottom: 0.5rem;">
+              <div class="slider-header">
+                <span>Probe Angle (θ)</span>
+                <span id="val-probe-angle" class="slider-val">0°</span>
+              </div>
+              <input type="range" id="slider-probe-angle" class="custom-slider" min="0" max="360" value="0" step="1">
+            </div>
+
+            <div class="preset-grid" style="margin-bottom: 0.6rem;">
+              <button id="btn-lock-eigen1" class="btn-preset">Lock to λ₁</button>
+              <button id="btn-lock-eigen2" class="btn-preset">Lock to λ₂</button>
+              <button id="btn-auto-scan" class="btn-preset" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">⚡ Auto-Scan</button>
+            </div>
             
             <div class="scanner-gauge-container">
               <div class="slider-header">
@@ -303,10 +344,39 @@
               </div>
             </div>
 
+            <!-- Vector Presets & Helpers -->
+            <div class="preset-grid" style="margin-top: 0.5rem; grid-template-columns: repeat(3, 1fr);">
+              <button class="btn-preset btn-vec-config" data-vcfg="perpendicular">u ⊥ v (90°)</button>
+              <button class="btn-preset btn-vec-config" data-vcfg="parallel">u ∥ v (0°)</button>
+              <button class="btn-preset btn-vec-config" data-vcfg="opposite">Opposite (180°)</button>
+              <button class="btn-preset btn-vec-config" data-vcfg="pythagoras">3-4-5 Triangle</button>
+              <button class="btn-preset btn-vec-config" data-vcfg="unit">Unit Vectors</button>
+              <button class="btn-preset btn-vec-config" data-vcfg="swap">Swap u ⇄ v</button>
+            </div>
+
             <!-- Vector Operations Helper Bar -->
             <div class="shape-selector" style="margin-top: 0.5rem;">
               <button id="btn-normalize-u" class="btn-shape">Normalize u (û)</button>
-              <button id="btn-orthogonalize-v" class="btn-shape">Make v ⊥ u</button>
+              <button id="btn-orthogonalize-v" class="btn-shape">Make v ⊥ u (Gram-Schmidt)</button>
+            </div>
+          </section>
+
+          <!-- Vector Arithmetic & Projections -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>➕</span> Vector Arithmetic</h2>
+            </div>
+            <div class="comparison-grid">
+              <div class="comp-card">
+                <span class="telemetry-label">Sum u + v</span>
+                <div id="val-vec-sum" class="comp-matrix" style="font-size: 0.82rem;">[ 3.00, 3.00 ]</div>
+                <span id="val-vec-sum-mag" class="telemetry-badge badge-det-pos" style="margin-top: 0.3rem;">||u+v|| = 4.24</span>
+              </div>
+              <div class="comp-card">
+                <span class="telemetry-label">Difference u - v</span>
+                <div id="val-vec-diff" class="comp-matrix" style="font-size: 0.82rem;">[ 1.00, -1.00 ]</div>
+                <span id="val-vec-diff-mag" class="telemetry-badge badge-det-pos" style="margin-top: 0.3rem;">||u-v|| = 1.41</span>
+              </div>
             </div>
           </section>
 
@@ -583,7 +653,7 @@
         <!-- Floating HUD Pill -->
         <div class="canvas-hud">
           <div id="hud-coords" class="hud-pill">Cursor: <strong>[0.00, 0.00]</strong></div>
-          <div class="hud-pill">Tip: <strong>Drag arrows</strong> or hold <strong>Shift</strong> to snap</div>
+          <div id="hud-tip" class="hud-pill">Tip: <strong>Drag arrows</strong> or hold <strong>Shift</strong> to snap</div>
         </div>
 
         <!-- Floating Zoom & Pan Controls -->

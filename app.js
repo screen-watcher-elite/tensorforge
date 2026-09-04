@@ -1035,14 +1035,126 @@
     drawTopRightHUDTag('MicroGraph Autograd: Click Forward Pass then Backprop to see chain rule!');
   }
 
-  // ── Notes & Quiz Canvas Placeholders ──────────────────────────────────────
+  // ── Notes & Quiz Interactive Visual Blackboard ───────────────────────────
 
   function renderNotesCanvas() {
-    drawTopRightHUDTag('Theory Vault: Select any lecture topic on the left sidebar!');
+    var topicSelect = $('notes-topic-select');
+    var topic = topicSelect ? topicSelect.value : 'matrix-transform';
+    var o = worldToScreen(0, 0);
+
+    drawTopRightHUDTag('Theory Vault: Interactive Concept Demonstration');
+    drawAxes();
+
+    if (topic === 'matrix-transform') {
+      // Draw grid, transformed basis, and landing column indicators
+      var m = state.matrix;
+      drawTransformedGrid(m);
+      drawTransformedShape(m);
+      drawBasisVectors(m);
+      var pI = worldToScreen(m.a, m.c);
+      var pJ = worldToScreen(m.b, m.d);
+      drawVectorLabel('Col 1: î lands at [' + m.a.toFixed(1) + ', ' + m.c.toFixed(1) + ']', pI.x, pI.y, '#10b981');
+      drawVectorLabel('Col 2: ĵ lands at [' + m.b.toFixed(1) + ', ' + m.d.toFixed(1) + ']', pJ.x, pJ.y, '#8b5cf6');
+    } else if (topic === 'determinant') {
+      // Draw unit square to transformed parallelogram with signed area badge
+      var m = state.matrix;
+      drawTransformedShape(m);
+      drawBasisVectors(m);
+      var det = m.determinant();
+      var center = worldToScreen((m.a + m.b) / 2, (m.c + m.d) / 2);
+      drawVectorLabel('Area Factor |det(A)| = ' + Math.abs(det).toFixed(2), center.x, center.y, '#38bdf8');
+      if (det < 0) {
+        drawVectorLabel('⚠️ Orientation Flipped (det < 0)', center.x, center.y + 22, '#f43f5e');
+      } else {
+        drawVectorLabel('✅ Orientation Preserved (det > 0)', center.x, center.y + 22, '#10b981');
+      }
+    } else if (topic === 'eigenvalues') {
+      // Draw invariant span lines and pulsating vector along invariant direction
+      drawEigenSpanLines(state.matrix);
+      drawBasisVectors(state.matrix);
+      var eigens = Engine.solveEigensystem(state.matrix);
+      if (eigens.isReal && eigens.eigenvectors.length > 0) {
+        var v1 = eigens.eigenvectors[0].vector;
+        var tScale = 1.2 + 0.6 * Math.sin(performance.now() / 350);
+        var scaled = new Vector2D(v1.x * tScale, v1.y * tScale);
+        var p = worldToScreen(scaled.x, scaled.y);
+        drawArrow(o.x, o.y, p.x, p.y, '#eab308', 3);
+        drawVectorLabel('Invariant Vector: Av = λv (Direction Never Rotates)', p.x, p.y, '#eab308');
+      }
+    } else if (topic === 'diagonalization') {
+      // Draw eigenbasis factorization diagram
+      drawEigenSpanLines(state.matrix);
+      var eigens = Engine.solveEigensystem(state.matrix);
+      if (eigens.isReal && eigens.eigenvectors.length >= 2) {
+        var ev1 = eigens.eigenvectors[0].vector;
+        var ev2 = eigens.eigenvectors[1].vector;
+        var p1 = worldToScreen(ev1.x, ev1.y);
+        var p2 = worldToScreen(ev2.x, ev2.y);
+        drawArrow(o.x, o.y, p1.x, p1.y, '#eab308', 2.5);
+        drawArrow(o.x, o.y, p2.x, p2.y, '#a855f7', 2.5);
+        drawVectorLabel('Eigenbasis Axis 1 (λ₁ = ' + eigens.eigenvalues[0].value.toFixed(2) + ')', p1.x, p1.y, '#eab308');
+        drawVectorLabel('Eigenbasis Axis 2 (λ₂ = ' + eigens.eigenvalues[1].value.toFixed(2) + ')', p2.x, p2.y, '#a855f7');
+      }
+    } else if (topic === 'svd') {
+      // Draw SVD Unit Circle -> Transformed Ellipse
+      state.shape = 'circle';
+      drawTransformedShape(state.matrix);
+      drawVectorLabel('SVD: Unit Circle → Transformed Hyper-Ellipse', o.x + 20, o.y - 120, '#38bdf8');
+      drawVectorLabel('Semi-axes lengths = Singular Values σ₁, σ₂', o.x + 20, o.y - 95, '#10b981');
+    } else if (topic === 'rank-nullity') {
+      drawRankNullityLines(state.matrix);
+      drawVectorLabel('Kernel ker(A): subspace compressed to 0', o.x - 140, o.y + 70, '#f43f5e');
+      drawVectorLabel('Image im(A): column space 1D output range', o.x + 40, o.y - 70, '#10b981');
+    } else if (topic === 'dot-product') {
+      drawVectorSandbox();
+    } else if (topic === 'gradient-descent' || topic === 'backpropagation') {
+      renderLossLab();
+    }
   }
 
   function renderQuizCanvas() {
-    drawTopRightHUDTag('Viva Quiz: Answer the viva practice questions on the left!');
+    var o = worldToScreen(0, 0);
+    drawTopRightHUDTag('Viva Question ' + (currentQuizIdx + 1) + ' of ' + QUIZ_QUESTIONS.length);
+    drawAxes();
+
+    // Render interactive pedagogical diagram tailored to the active question
+    if (currentQuizIdx === 0) {
+      // Question 1: Negative determinant (flipped space)
+      var m = new Matrix2x2(-1.2, 0.4, 0.4, 1.2);
+      drawTransformedShape(m);
+      drawBasisVectors(m);
+      drawVectorLabel('Mirrored Chirality: det(A) < 0 (Orientation Inverted)', o.x - 60, o.y - 90, '#f43f5e');
+    } else if (currentQuizIdx === 1 || currentQuizIdx === 3) {
+      // Question 2 or 4: Singular matrix / rank collapse
+      var m = new Matrix2x2(1.5, 0.75, 1.0, 0.5);
+      drawRankNullityLines(m);
+      drawBasisVectors(m);
+      drawVectorLabel('Dimension Squashed to 1D Line (det = 0, rank < 2)', o.x - 50, o.y - 80, '#ef4444');
+    } else if (currentQuizIdx === 2) {
+      // Question 3: Non-commutativity AB != BA
+      var p1 = worldToScreen(state.matrix.a, state.matrix.c);
+      var p2 = worldToScreen(state.matrixB.a, state.matrixB.c);
+      drawArrow(o.x, o.y, p1.x, p1.y, '#38bdf8', 2.5);
+      drawArrow(o.x, o.y, p2.x, p2.y, '#f59e0b', 2.5);
+      drawVectorLabel('A·î', p1.x, p1.y, '#38bdf8');
+      drawVectorLabel('B·î', p2.x, p2.y, '#f59e0b');
+      drawVectorLabel('Order of transformations matters: AB ≠ BA', o.x - 80, o.y + 110, '#eab308');
+    } else if (currentQuizIdx === 4) {
+      // Question 5: Orthogonal vectors u . v = 0
+      var uPos = worldToScreen(2.5, 0);
+      var vPos = worldToScreen(0, 2.5);
+      drawArrow(o.x, o.y, uPos.x, uPos.y, '#f43f5e', 2.5);
+      drawArrow(o.x, o.y, vPos.x, vPos.y, '#06b6d4', 2.5);
+      drawVectorLabel('u [2.5, 0]', uPos.x, uPos.y, '#f43f5e');
+      drawVectorLabel('v [0, 2.5]', vPos.x, vPos.y, '#06b6d4');
+      drawVectorLabel('Perpendicular: u · v = 0 (Angle θ = 90°)', o.x + 30, o.y - 60, '#10b981');
+    } else {
+      // Other questions: General transformation geometry
+      drawTransformedShape(state.matrix);
+      drawBasisVectors(state.matrix);
+      drawEigenSpanLines(state.matrix);
+      drawVectorLabel('Active Viva Concept Whiteboard', o.x - 60, o.y - 100, '#38bdf8');
+    }
   }
 
   // ── Vector Helpers & Primitive Drawing ────────────────────────────────────
@@ -1091,16 +1203,42 @@
 
   function drawVectorLabel(text, x, y, color, angle) {
     ctx.save();
-    ctx.font = '600 11px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
-    ctx.fillStyle = color;
+    ctx.font = '600 11px JetBrains Mono, monospace';
 
     var rad = typeof angle === 'number' ? angle : 0;
-    var offX = Math.cos(rad) * 14;
-    var offY = -Math.sin(rad) * 14;
+    var offX = Math.cos(rad) * 16;
+    var offY = -Math.sin(rad) * 16;
 
+    var posX = x + (offX >= 0 ? 10 : -10);
+    var posY = y + (offY <= 0 ? -8 : 8);
+
+    var metrics = ctx.measureText(text);
+    var textWidth = metrics.width;
+    var textHeight = 12;
+    var padX = 5;
+    var padY = 3;
+
+    var boxX = offX >= 0 ? posX - padX : posX - textWidth - padX;
+    var boxY = offY <= 0 ? posY - textHeight - padY : posY - padY;
+
+    // Draw dark glass pill behind text to guarantee zero label/grid collisions
+    ctx.fillStyle = 'rgba(10, 16, 30, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(boxX, boxY, textWidth + padX * 2, textHeight + padY * 2, 4);
+    } else {
+      ctx.rect(boxX, boxY, textWidth + padX * 2, textHeight + padY * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw text
+    ctx.fillStyle = color;
     ctx.textAlign = offX >= 0 ? 'left' : 'right';
     ctx.textBaseline = offY <= 0 ? 'bottom' : 'top';
-    ctx.fillText(text, x + (offX >= 0 ? 8 : -8), y + (offY <= 0 ? -6 : 6));
+    ctx.fillText(text, posX, posY);
     ctx.restore();
   }
 
@@ -1204,7 +1342,38 @@
       }
     }
 
+    // Update Custom Vector Output T(v) = Av
+    var transVecEl = $('readout-trans-vec');
+    if (transVecEl) {
+      var vTrans = m.apply(state.customVec);
+      transVecEl.textContent = '[ ' + formatSafe(vTrans.x) + ', ' + formatSafe(vTrans.y) + ' ]';
+    }
+
+    // Update Vector Sandbox Arithmetic
+    var vecSum = state.vecU.add(state.vecV);
+    var vecDiff = state.vecU.sub(state.vecV);
+    var elSum = $('val-vec-sum');
+    var elDiff = $('val-vec-diff');
+    var elSumMag = $('val-vec-sum-mag');
+    var elDiffMag = $('val-vec-diff-mag');
+    if (elSum) elSum.textContent = '[ ' + formatSafe(vecSum.x) + ', ' + formatSafe(vecSum.y) + ' ]';
+    if (elDiff) elDiff.textContent = '[ ' + formatSafe(vecDiff.x) + ', ' + formatSafe(vecDiff.y) + ' ]';
+    if (elSumMag) elSumMag.textContent = '||u+v|| = ' + formatSafe(vecSum.magnitude());
+    if (elDiffMag) elDiffMag.textContent = '||u-v|| = ' + formatSafe(vecDiff.magnitude());
+
     updateUrlHash();
+  }
+
+  function syncCustomVectorInputs() {
+    var vxInput = $('vec-custom-x');
+    var vyInput = $('vec-custom-y');
+    if (vxInput && document.activeElement !== vxInput) vxInput.value = state.customVec.x.toFixed(2);
+    if (vyInput && document.activeElement !== vyInput) vyInput.value = state.customVec.y.toFixed(2);
+    var transVecEl = $('readout-trans-vec');
+    if (transVecEl) {
+      var vt = state.matrix.apply(state.customVec);
+      transVecEl.textContent = '[ ' + formatSafe(vt.x) + ', ' + formatSafe(vt.y) + ' ]';
+    }
   }
 
   function updateMultComparison() {
@@ -1352,10 +1521,19 @@
       state.matrix.b = sx; state.matrix.d = sy;
       syncMatrixInputs(); updateTelemetry(); render();
     } else if (state.draggingTarget === 'v') {
-      state.customVec.x = sx; state.customVec.y = sy; render();
+      state.customVec.x = sx; state.customVec.y = sy;
+      syncCustomVectorInputs();
+      updateTelemetry();
+      render();
     } else if (state.draggingTarget === 'probe') {
       var ang = Math.atan2(world.y, world.x);
-      state.eigenProbe = new Vector2D(Math.cos(ang), Math.sin(ang)); render();
+      state.eigenProbe = new Vector2D(Math.cos(ang), Math.sin(ang));
+      var deg = Math.round(((ang * 180) / Math.PI + 360) % 360);
+      var sAngle = $('slider-probe-angle');
+      var vAngle = $('val-probe-angle');
+      if (sAngle) sAngle.value = deg;
+      if (vAngle) vAngle.textContent = deg + '°';
+      render();
     } else if (state.draggingTarget === 'u') {
       state.vecU.x = sx; state.vecU.y = sy;
       vecUXInput.value = sx.toFixed(1); vecUYInput.value = sy.toFixed(1); render();
@@ -1901,6 +2079,138 @@
       });
     }
 
+    // Custom Vector (v) Inputs
+    var vecCustomX = $('vec-custom-x');
+    var vecCustomY = $('vec-custom-y');
+    if (vecCustomX && vecCustomY) {
+      var onCustomVecInput = function () {
+        state.customVec.x = parseFloat(vecCustomX.value) || 0;
+        state.customVec.y = parseFloat(vecCustomY.value) || 0;
+        updateTelemetry();
+        render();
+      };
+      vecCustomX.addEventListener('input', onCustomVecInput);
+      vecCustomY.addEventListener('input', onCustomVecInput);
+    }
+
+    var btnToggleCustomVec = $('btn-toggle-custom-vec');
+    if (btnToggleCustomVec) {
+      btnToggleCustomVec.addEventListener('click', function () {
+        state.showCustomVec = !state.showCustomVec;
+        this.textContent = state.showCustomVec ? 'Visible' : 'Hidden';
+        this.className = state.showCustomVec ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-neg';
+        render();
+      });
+    }
+
+    document.querySelectorAll('.btn-vec-preset').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var vx = parseFloat(this.getAttribute('data-vx')) || 0;
+        var vy = parseFloat(this.getAttribute('data-vy')) || 0;
+        state.customVec.x = vx;
+        state.customVec.y = vy;
+        if (vecCustomX) vecCustomX.value = vx.toFixed(2);
+        if (vecCustomY) vecCustomY.value = vy.toFixed(2);
+        updateTelemetry();
+        render();
+      });
+    });
+
+    // Eigen Probe Slider & Locking Controls
+    var sliderProbeAngle = $('slider-probe-angle');
+    var valProbeAngle = $('val-probe-angle');
+    if (sliderProbeAngle) {
+      sliderProbeAngle.addEventListener('input', function () {
+        var deg = parseFloat(this.value);
+        if (valProbeAngle) valProbeAngle.textContent = deg + '°';
+        var rad = (deg * Math.PI) / 180;
+        state.eigenProbe = new Vector2D(Math.cos(rad), Math.sin(rad));
+        render();
+      });
+    }
+
+    var btnLockEigen1 = $('btn-lock-eigen1');
+    if (btnLockEigen1) {
+      btnLockEigen1.addEventListener('click', function () {
+        var eigens = Engine.solveEigensystem(state.matrix);
+        if (eigens.isReal && eigens.eigenvectors.length > 0) {
+          var v1 = eigens.eigenvectors[0].vector;
+          state.eigenProbe = new Vector2D(v1.x, v1.y).normalize();
+          var deg = Math.round(((Math.atan2(v1.y, v1.x) * 180) / Math.PI + 360) % 360);
+          if (sliderProbeAngle) sliderProbeAngle.value = deg;
+          if (valProbeAngle) valProbeAngle.textContent = deg + '°';
+          render();
+        }
+      });
+    }
+
+    var btnLockEigen2 = $('btn-lock-eigen2');
+    if (btnLockEigen2) {
+      btnLockEigen2.addEventListener('click', function () {
+        var eigens = Engine.solveEigensystem(state.matrix);
+        if (eigens.isReal && eigens.eigenvectors.length > 1) {
+          var v2 = eigens.eigenvectors[1].vector;
+          state.eigenProbe = new Vector2D(v2.x, v2.y).normalize();
+          var deg = Math.round(((Math.atan2(v2.y, v2.x) * 180) / Math.PI + 360) % 360);
+          if (sliderProbeAngle) sliderProbeAngle.value = deg;
+          if (valProbeAngle) valProbeAngle.textContent = deg + '°';
+          render();
+        }
+      });
+    }
+
+    var btnAutoScan = $('btn-auto-scan');
+    if (btnAutoScan) {
+      btnAutoScan.addEventListener('click', function () {
+        var deg = 0;
+        var timer = setInterval(function () {
+          deg += 5;
+          if (deg > 360) {
+            clearInterval(timer);
+            return;
+          }
+          if (sliderProbeAngle) sliderProbeAngle.value = deg % 360;
+          if (valProbeAngle) valProbeAngle.textContent = (deg % 360) + '°';
+          var rad = ((deg % 360) * Math.PI) / 180;
+          state.eigenProbe = new Vector2D(Math.cos(rad), Math.sin(rad));
+          render();
+        }, 25);
+      });
+    }
+
+    // Vector Sandbox Configuration Presets
+    document.querySelectorAll('.btn-vec-config').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var cfg = this.getAttribute('data-vcfg');
+        if (cfg === 'perpendicular') {
+          state.vecV.x = -state.vecU.y;
+          state.vecV.y = state.vecU.x;
+        } else if (cfg === 'parallel') {
+          state.vecV.x = state.vecU.x * 1.5;
+          state.vecV.y = state.vecU.y * 1.5;
+        } else if (cfg === 'opposite') {
+          state.vecV.x = -state.vecU.x;
+          state.vecV.y = -state.vecU.y;
+        } else if (cfg === 'pythagoras') {
+          state.vecU.x = 3.0; state.vecU.y = 0.0;
+          state.vecV.x = 0.0; state.vecV.y = 4.0;
+        } else if (cfg === 'unit') {
+          state.vecU = state.vecU.normalize();
+          state.vecV = state.vecV.normalize();
+        } else if (cfg === 'swap') {
+          var tmp = state.vecU.clone();
+          state.vecU = state.vecV.clone();
+          state.vecV = tmp;
+        }
+        vecUXInput.value = state.vecU.x.toFixed(1);
+        vecUYInput.value = state.vecU.y.toFixed(1);
+        vecVXInput.value = state.vecV.x.toFixed(1);
+        vecVYInput.value = state.vecV.y.toFixed(1);
+        updateVectorSandboxTelemetry();
+        render();
+      });
+    });
+
     // Vector Sandbox quick helpers
     var btnNormU = $('btn-normalize-u');
     if (btnNormU) {
@@ -1968,6 +2278,23 @@
     });
   }
 
+  function updateHUDTip(mode) {
+    var tipEl = $('hud-tip');
+    if (!tipEl) return;
+    var tips = {
+      transform: 'Tip: <strong>Drag arrows</strong>, hold <strong>Shift</strong> to snap, or tweak vector v in sidebar',
+      eigen: 'Tip: <strong>Sweep Probe Angle</strong> or click <strong>Auto-Scan</strong> to discover invariant lines',
+      mult: 'Tip: Scrub the <strong>Interpolation Slider (t)</strong> to inspect transformation ordering (AB ≠ BA)',
+      vectors: 'Tip: Drag <strong>vectors u & v</strong> or click presets for orthogonal decomposition',
+      '3d': 'Tip: <strong>Click & drag on canvas</strong> to orbit camera 360°, or tweak Euler sliders',
+      loss: 'Tip: Select a loss surface and click <strong>▶ Run Race</strong> to compare gradient descent algorithms',
+      autograd: 'Tip: Click <strong>▶ Forward Pass</strong> then <strong>◀ Backprop</strong> to trace reverse-mode gradients',
+      notes: 'Tip: Select any <strong>FY Engineering Topic</strong> on the left to inspect illustrated interactive theory',
+      quiz: 'Tip: Pick an option on the left and click <strong>Next Question</strong> to test active recall'
+    };
+    tipEl.innerHTML = tips[mode] || tips.transform;
+  }
+
   function setMode(newMode) {
     state.mode = newMode;
 
@@ -1975,15 +2302,27 @@
     var panels = ['transform', 'eigen', 'mult', 'vectors', '3d', 'loss', 'autograd', 'notes', 'quiz'];
     panels.forEach(function (p) {
       var el = $('panel-' + p);
-      if (el) el.classList.toggle('hidden', newMode !== p);
+      if (el) {
+        el.classList.toggle('hidden', newMode !== p);
+        el.classList.toggle('active', newMode === p);
+      }
+    });
+
+    // Update active mode buttons
+    document.querySelectorAll('.mode-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === newMode);
     });
 
     multDrawer.classList.toggle('active', newMode === 'mult');
 
+    updateHUDTip(newMode);
+    updateTelemetry();
+
     if (newMode === 'loss') {
       initLossParticles();
     } else if (newMode === 'notes') {
-      updateNotesTopic($('notes-topic-select').value);
+      var sel = $('notes-topic-select');
+      if (sel) updateNotesTopic(sel.value);
     } else if (newMode === 'quiz') {
       renderQuizQuestion();
     }
