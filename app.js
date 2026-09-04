@@ -300,6 +300,7 @@
 
   function render() {
     ctx.clearRect(0, 0, viewWidth, viewHeight);
+    beginLabelPass();
 
     if (state.mode === '3d') {
       render3DSpace();
@@ -344,7 +345,7 @@
       if (state.mode === 'eigen') {
         drawEigenHunter(activeMatrix);
       } else {
-        if (state.showCustomVec) {
+        if (state.showCustomVec && state.mode === 'transform') {
           drawCustomVector(activeMatrix);
         }
         if (state.showSolver && state.mode === 'transform') {
@@ -352,6 +353,8 @@
         }
       }
     }
+
+    flushVectorLabels();
   }
 
   function getActiveMatrixForRender() {
@@ -2268,45 +2271,166 @@
     ctx.restore();
   }
 
-  function drawVectorLabel(text, x, y, color, angle) {
+  // ── Dynamic Collision-Free Label Engine ──────────────────────────────────
+  var activeLabelQueue = [];
+  var isQueueingLabels = false;
+
+  function beginLabelPass() {
+    activeLabelQueue = [];
+    isQueueingLabels = true;
+  }
+
+  function drawVectorLabel(text, x, y, color, angle, priority) {
+    if (!text) return;
+    if (isQueueingLabels) {
+      activeLabelQueue.push({
+        text: text,
+        anchorX: x,
+        anchorY: y,
+        color: color || '#f8fafc',
+        angle: typeof angle === 'number' ? angle : 0,
+        priority: typeof priority === 'number' ? priority : 0
+      });
+    } else {
+      renderSingleLabelPill(text, x, y, color || '#f8fafc', typeof angle === 'number' ? angle : 0, x, y, false);
+    }
+  }
+
+  function renderSingleLabelPill(text, boxX, boxY, color, anchorX, anchorY, leader) {
     ctx.save();
     ctx.font = '600 11px JetBrains Mono, monospace';
-
-    var rad = typeof angle === 'number' ? angle : 0;
-    var offX = Math.cos(rad) * 16;
-    var offY = -Math.sin(rad) * 16;
-
-    var posX = x + (offX >= 0 ? 10 : -10);
-    var posY = y + (offY <= 0 ? -8 : 8);
-
     var metrics = ctx.measureText(text);
     var textWidth = metrics.width;
     var textHeight = 12;
-    var padX = 5;
-    var padY = 3;
+    var padX = 6;
+    var padY = 3.5;
+    var totalW = textWidth + padX * 2 + 10;
+    var totalH = textHeight + padY * 2;
 
-    var boxX = offX >= 0 ? posX - padX : posX - textWidth - padX;
-    var boxY = offY <= 0 ? posY - textHeight - padY : posY - padY;
+    // Leader line if displaced from anchor
+    if (leader && (Math.abs(boxX + totalW / 2 - anchorX) > 18 || Math.abs(boxY + totalH / 2 - anchorY) > 18)) {
+      ctx.beginPath();
+      ctx.moveTo(anchorX, anchorY);
+      ctx.lineTo(boxX + totalW / 2, boxY + totalH / 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
-    // Draw dark glass pill behind text to guarantee zero label/grid collisions
-    ctx.fillStyle = 'rgba(10, 16, 30, 0.85)';
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    // Outer shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+
+    // Dark glass pill
+    ctx.fillStyle = 'rgba(9, 14, 26, 0.92)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     if (ctx.roundRect) {
-      ctx.roundRect(boxX, boxY, textWidth + padX * 2, textHeight + padY * 2, 4);
+      ctx.roundRect(boxX, boxY, totalW, totalH, 5);
     } else {
-      ctx.rect(boxX, boxY, textWidth + padX * 2, textHeight + padY * 2);
+      ctx.rect(boxX, boxY, totalW, totalH);
     }
     ctx.fill();
+    ctx.shadowColor = 'transparent';
     ctx.stroke();
 
-    // Draw text
+    // Colored accent dot
+    var dotRadius = 2.5;
+    var dotX = boxX + padX + dotRadius;
+    var dotY = boxY + totalH / 2;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
     ctx.fillStyle = color;
-    ctx.textAlign = offX >= 0 ? 'left' : 'right';
-    ctx.textBaseline = offY <= 0 ? 'bottom' : 'top';
-    ctx.fillText(text, posX, posY);
+    ctx.fill();
+
+    // Text with slight indent
+    ctx.fillStyle = '#f8fafc';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, boxX + padX + dotRadius * 2 + 5, boxY + totalH / 2 + 0.5);
     ctx.restore();
+  }
+
+  function flushVectorLabels() {
+    isQueueingLabels = false;
+    if (activeLabelQueue.length === 0) return;
+
+    ctx.save();
+    ctx.font = '600 11px JetBrains Mono, monospace';
+
+    // 1. Calculate initial bounding boxes
+    var computed = activeLabelQueue.map(function (item) {
+      var metrics = ctx.measureText(item.text);
+      var textWidth = metrics.width;
+      var totalW = textWidth + 12 + 5 + 6;
+      var totalH = 19;
+
+      var rad = item.angle;
+      var offX = Math.cos(rad) * 18;
+      var offY = -Math.sin(rad) * 18;
+
+      var initX = offX >= 0 ? item.anchorX + 8 : item.anchorX - totalW - 8;
+      var initY = offY <= 0 ? item.anchorY - totalH - 4 : item.anchorY + 4;
+
+      return {
+        text: item.text,
+        color: item.color,
+        anchorX: item.anchorX,
+        anchorY: item.anchorY,
+        x: initX,
+        y: initY,
+        w: totalW,
+        h: totalH,
+        priority: item.priority
+      };
+    });
+    ctx.restore();
+
+    // 2. Iterative collision relaxation (up to 4 passes)
+    for (var pass = 0; pass < 4; pass++) {
+      var moved = false;
+      for (var i = 0; i < computed.length; i++) {
+        for (var j = i + 1; j < computed.length; j++) {
+          var a = computed[i];
+          var b = computed[j];
+
+          var margin = 4;
+          var overlapX = (a.x < b.x + b.w + margin) && (a.x + a.w + margin > b.x);
+          var overlapY = (a.y < b.y + b.h + margin) && (a.y + a.h + margin > b.y);
+
+          if (overlapX && overlapY) {
+            var shift = (a.h + margin) / 2 + 1;
+            if (a.y <= b.y) {
+              a.y -= shift;
+              b.y += shift;
+            } else {
+              a.y += shift;
+              b.y -= shift;
+            }
+            if (Math.abs(a.x - b.x) < 20) {
+              if (a.anchorX <= b.anchorX) {
+                a.x -= 8;
+                b.x += 8;
+              } else {
+                a.x += 8;
+                b.x -= 8;
+              }
+            }
+            moved = true;
+          }
+        }
+      }
+      if (!moved) break;
+    }
+
+    // 3. Render all relaxed labels
+    computed.forEach(function (c) {
+      renderSingleLabelPill(c.text, c.x, c.y, c.color, c.anchorX, c.anchorY, true);
+    });
   }
 
   // ── Number Display Safety Helpers ─────────────────────────────────────────
