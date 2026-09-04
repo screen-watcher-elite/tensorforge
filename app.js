@@ -95,12 +95,35 @@
     }
   })();
 
-  var animController = new Engine.AnimationController(function (currentMatrix) {
+  // baseMatrix stores the user's un-powered matrix so power-stepper can be purely visual
+  var state_basePowerMatrix = null;
+
+  // Main animation controller (for preset transitions and user-driven animations)
+  var animController = new Engine.AnimationController(function (currentMatrix, easeT) {
     state.matrix = currentMatrix;
     syncMatrixInputs();
     updateTelemetry();
     render();
   });
+
+  // Dedicated power-preview controller: renders A^k but NEVER writes to state.matrix
+  var powerAnimController = new Engine.AnimationController(
+    function (currentMatrix) {
+      // Render using temporary matrix but don't update state, inputs, or hash
+      var savedMatrix = state.matrix;
+      state.matrix = currentMatrix;
+      render();
+      state.matrix = savedMatrix;
+    },
+    function (finalMatrix) {
+      // Animation done — stay at base matrix, reset button to A¹
+      state_basePowerMatrix = null;
+      render();
+      document.querySelectorAll('.btn-power').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-power') === '1');
+      });
+    }
+  );
 
   // ── DOM References ────────────────────────────────────────────────────────
 
@@ -1081,6 +1104,17 @@
     ctx.restore();
   }
 
+  // ── Number Display Safety Helpers ─────────────────────────────────────────
+
+  // Format a number safely: cap extremely large values, show finite decimals
+  function formatSafe(val, decimals) {
+    if (typeof val !== 'number' || isNaN(val)) return '??';
+    if (!isFinite(val)) return val > 0 ? '+∞' : '-∞';
+    var d = typeof decimals === 'number' ? decimals : 2;
+    if (Math.abs(val) > 1e6) return val.toExponential(2);
+    return val.toFixed(d);
+  }
+
   // ── Math Telemetry Updates ────────────────────────────────────────────────
 
   function updateTelemetry() {
@@ -1089,38 +1123,48 @@
     var tr = m.trace();
     var rk = m.rank();
 
-    readoutDet.textContent = det.toFixed(2);
-    if (Math.abs(det) < Engine.EPSILON) {
-      badgeDet.textContent = 'Dimension Collapsed';
-      badgeDet.className = 'telemetry-badge badge-det-zero';
-    } else if (det > 0) {
-      badgeDet.textContent = 'Orientation Preserved';
-      badgeDet.className = 'telemetry-badge badge-det-pos';
-    } else {
-      badgeDet.textContent = 'Orientation Inverted';
-      badgeDet.className = 'telemetry-badge badge-det-neg';
+    // Guard: only write determinant / eigenvalue display if in a 2D-mode
+    var in2DMode = (state.mode === 'transform' || state.mode === 'eigen' ||
+                    state.mode === 'mult'    || state.mode === 'vectors');
+
+    if (readoutDet) readoutDet.textContent = formatSafe(det);
+    if (badgeDet) {
+      if (Math.abs(det) < Engine.EPSILON) {
+        badgeDet.textContent = 'Dimension Collapsed';
+        badgeDet.className = 'telemetry-badge badge-det-zero';
+      } else if (det > 0) {
+        badgeDet.textContent = 'Orientation Preserved';
+        badgeDet.className = 'telemetry-badge badge-det-pos';
+      } else {
+        badgeDet.textContent = 'Orientation Inverted';
+        badgeDet.className = 'telemetry-badge badge-det-neg';
+      }
     }
 
-    readoutTrace.textContent = tr.toFixed(2);
-    readoutRank.textContent = rk;
+    if (readoutTrace) readoutTrace.textContent = formatSafe(tr);
+    if (readoutRank) readoutRank.textContent = rk;
 
     var eigens = Engine.solveEigensystem(m);
-    eigenFormulaSub.textContent = eigens.equationString;
-    eigenQuadExpanded.textContent = eigens.discriminantString;
-    eigenDiscVal.textContent = 'Δ = ' + eigens.discriminant.toFixed(2);
+    if (eigenFormulaSub) eigenFormulaSub.textContent = eigens.equationString;
+    if (eigenQuadExpanded) eigenQuadExpanded.textContent = eigens.discriminantString;
+    if (eigenDiscVal) eigenDiscVal.textContent = 'Δ = ' + formatSafe(eigens.discriminant);
 
     if (eigens.isReal) {
-      eigenRow1.textContent = 'λ₁ = ' + eigens.eigenvalues[0].value.toFixed(2);
-      eigenRow2.textContent = 'λ₂ = ' + eigens.eigenvalues[1].value.toFixed(2);
-      badgeDisc.textContent = '2 Distinct Real Eigenvalues';
-      badgeDisc.className = 'telemetry-badge badge-det-pos';
+      if (eigenRow1) eigenRow1.textContent = 'λ₁ = ' + formatSafe(eigens.eigenvalues[0].value);
+      if (eigenRow2) eigenRow2.textContent = 'λ₂ = ' + formatSafe(eigens.eigenvalues[1].value);
+      if (badgeDisc) {
+        badgeDisc.textContent = '2 Distinct Real Eigenvalues';
+        badgeDisc.className = 'telemetry-badge badge-det-pos';
+      }
     } else {
-      var re = eigens.eigenvalues[0].real.toFixed(2);
-      var im = eigens.eigenvalues[0].imag.toFixed(2);
-      eigenRow1.textContent = 'λ₁ = ' + re + ' + ' + im + 'i';
-      eigenRow2.textContent = 'λ₂ = ' + re + ' - ' + im + 'i';
-      badgeDisc.textContent = 'Complex Roots (Pure Rotation/Spiral)';
-      badgeDisc.className = 'telemetry-badge badge-det-neg';
+      var re = formatSafe(eigens.eigenvalues[0].real);
+      var im = formatSafe(eigens.eigenvalues[0].imag);
+      if (eigenRow1) eigenRow1.textContent = 'λ₁ = ' + re + ' + ' + im + 'i';
+      if (eigenRow2) eigenRow2.textContent = 'λ₂ = ' + re + ' - ' + im + 'i';
+      if (badgeDisc) {
+        badgeDisc.textContent = 'Complex Roots (Pure Rotation/Spiral)';
+        badgeDisc.className = 'telemetry-badge badge-det-neg';
+      }
     }
 
     var diagText = $('diag-status-text');
@@ -1128,7 +1172,7 @@
       if (eigens.isReal && eigens.eigenvectors.length >= 2 && Math.abs(eigens.eigenvalues[0].value - eigens.eigenvalues[1].value) > Engine.EPSILON) {
         var ev1 = eigens.eigenvectors[0].vector;
         var ev2 = eigens.eigenvectors[1].vector;
-        diagText.innerHTML = 'Diagonalizable over ℝ:<br><strong>P</strong> = [ ' + ev1.x.toFixed(2) + ', ' + ev2.x.toFixed(2) + ' ; ' + ev1.y.toFixed(2) + ', ' + ev2.y.toFixed(2) + ' ]<br><strong>D</strong> = diag(' + eigens.eigenvalues[0].value.toFixed(2) + ', ' + eigens.eigenvalues[1].value.toFixed(2) + ')<br>Powers: Aᵏ = P·Dᵏ·P⁻¹';
+        diagText.innerHTML = 'Diagonalizable over \u211d:<br><strong>P</strong> = [ ' + formatSafe(ev1.x) + ', ' + formatSafe(ev2.x) + ' ; ' + formatSafe(ev1.y) + ', ' + formatSafe(ev2.y) + ' ]<br><strong>D</strong> = diag(' + formatSafe(eigens.eigenvalues[0].value) + ', ' + formatSafe(eigens.eigenvalues[1].value) + ')<br>Powers: A\u1d4f = P\u00b7D\u1d4f\u00b7P\u207b\u00b9';
       } else if (!eigens.isReal) {
         diagText.textContent = 'Cannot be diagonalized over ℝ (no real eigenbasis). A represents a rotation/spiral.';
       } else {
@@ -1137,6 +1181,14 @@
     }
 
     updateMultComparison();
+
+    // Show/hide Mathematical Invariants section based on mode
+    var invariantsSection = document.querySelector('.sidebar-section.telemetry-always-visible');
+    if (invariantsSection) {
+      var show2D = state.mode === 'transform' || state.mode === 'eigen' ||
+                   state.mode === 'mult'      || state.mode === 'vectors';
+      invariantsSection.style.display = show2D ? '' : 'none';
+    }
 
     var nullCard = $('nullspace-card');
     if (nullCard) {
@@ -1690,13 +1742,24 @@
       });
     });
 
-    // Matrix powers stepper
+    // Matrix powers stepper — previews A^k without permanently mutating state.matrix
     document.querySelectorAll('.btn-power[data-power]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var p = parseInt(this.getAttribute('data-power'), 10);
         document.querySelectorAll('.btn-power').forEach(function (b) { b.classList.remove('active'); });
         this.classList.add('active');
-        animController.start(state.matrix, state.matrix.power(p), 500);
+        if (p === 1) {
+          // Return to base matrix immediately
+          powerAnimController.stop();
+          state_basePowerMatrix = null;
+          render();
+          return;
+        }
+        // Animate from base matrix to A^p using the isolated power controller
+        var base = state.matrix.clone();
+        state_basePowerMatrix = base;
+        var powered = base.power(p);
+        powerAnimController.start(base, powered, 700);
       });
     });
 
@@ -1935,8 +1998,15 @@
     if (hashDebounceTimer) clearTimeout(hashDebounceTimer);
     hashDebounceTimer = setTimeout(function () {
       var m = state.matrix;
+      // Safety guard: don't encode astronomically large or infinite values
+      var vals = [m.a, m.b, m.c, m.d];
+      var allSafe = vals.every(function (v) {
+        return isFinite(v) && Math.abs(v) <= 20;
+      });
+      if (!allSafe) return;
+
       var hash = 'a=' + m.a.toFixed(2) + '&b=' + m.b.toFixed(2) + '&c=' + m.c.toFixed(2) + '&d=' + m.d.toFixed(2) + '&m=' + state.mode;
-      window.location.hash = hash;
+      window.history.replaceState(null, '', '#' + hash);
     }, 400);
   }
 
@@ -1950,9 +2020,23 @@
     });
 
     if (params.a && params.b && params.c && params.d) {
-      var a = parseFloat(params.a), b = parseFloat(params.b), c = parseFloat(params.c), d = parseFloat(params.d);
-      if (!isNaN(a) && !isNaN(b) && !isNaN(c) && !isNaN(d)) {
+      var a = parseFloat(params.a);
+      var b = parseFloat(params.b);
+      var c = parseFloat(params.c);
+      var d = parseFloat(params.d);
+
+      // Sanity check: clamp to ±20 to prevent astronomical values from being restored
+      var MAX_SAFE = 20;
+      var isValid = [a, b, c, d].every(function (v) {
+        return !isNaN(v) && isFinite(v) && Math.abs(v) <= MAX_SAFE;
+      });
+
+      if (isValid) {
         state.matrix = new Matrix2x2(a, b, c, d);
+      } else {
+        // Clear the bad hash so it stops poisoning reloads
+        window.history.replaceState(null, '', window.location.pathname);
+        console.warn('TensorForge: Corrupt URL hash discarded (values out of safe range).');
       }
     }
     if (params.m) {

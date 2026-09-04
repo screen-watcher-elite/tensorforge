@@ -250,6 +250,11 @@
   //
   // Discriminant Δ = tr(A)² - 4*det(A)
 
+  function fmtNum(v, d) {
+    if (!isFinite(v) || Math.abs(v) > 1e6) return v.toExponential(2);
+    return v.toFixed(typeof d === 'number' ? d : 2);
+  }
+
   function solveEigensystem(matrix) {
     var tr = matrix.trace();
     var det = matrix.determinant();
@@ -261,8 +266,8 @@
       discriminant: discriminant,
       isReal: discriminant >= -EPSILON,
       // LaTeX / educational step breakdown
-      equationString: 'λ² - (' + tr.toFixed(2) + ')λ + (' + det.toFixed(2) + ') = 0',
-      discriminantString: 'Δ = (' + tr.toFixed(2) + ')² - 4(' + det.toFixed(2) + ') = ' + discriminant.toFixed(2),
+      equationString: 'λ² - (' + fmtNum(tr) + ')λ + (' + fmtNum(det) + ') = 0',
+      discriminantString: 'Δ = (' + fmtNum(tr) + ')² - 4(' + fmtNum(det) + ') = ' + fmtNum(discriminant),
       eigenvalues: [],
       eigenvectors: []
     };

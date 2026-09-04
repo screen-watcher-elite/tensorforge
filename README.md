@@ -6,6 +6,7 @@
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 ![Pure Vanilla JS](https://img.shields.io/badge/stack-HTML5%20%7C%20CSS%20%7C%20JS-orange)
 ![60 FPS Canvas](https://img.shields.io/badge/graphics-HTML5%20Canvas-indigo)
+![Built with Claude Code](https://img.shields.io/badge/built%20with-Claude%20Code-d97706?logo=anthropic&logoColor=white)
 
 ---
 
