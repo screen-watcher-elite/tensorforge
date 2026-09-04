@@ -781,16 +781,19 @@
             <div class="section-header">
               <h2 class="section-title"><span>🌄</span> Loss Landscape</h2>
             </div>
-            <div class="shape-selector">
+            <div class="shape-selector" style="grid-template-columns: 1fr 1fr;">
               <button class="btn-loss active" data-loss="bowl">Convex Bowl</button>
               <button class="btn-loss" data-loss="saddle">Saddle Point</button>
-              <button class="btn-loss" data-loss="rosenbrock" style="grid-column: span 2;">Rosenbrock Valley</button>
+              <button class="btn-loss" data-loss="rosenbrock">Rosenbrock Valley</button>
+              <button class="btn-loss" data-loss="beale">Beale's Ravine</button>
+              <button class="btn-loss" data-loss="rastrigin" style="grid-column: span 2;">Rastrigin Multimodal Traps</button>
             </div>
           </section>
 
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>⚙️</span> Hyperparameters & Controls</h2>
+              <h2 class="section-title"><span>⚙️</span> Hyperparameters &amp; Controls</h2>
+              <span id="val-loss-steps" style="font-size: 0.78rem; font-family: var(--font-mono); color: #38bdf8;">Step: 0</span>
             </div>
             <div class="slider-group">
               <div class="slider-header"><span>Learning Rate (α)</span><span id="val-lr" class="slider-val">0.05</span></div>
@@ -799,7 +802,31 @@
 
             <div class="preset-grid" style="grid-template-columns: 1fr 1fr; margin-top: 0.5rem;">
               <button id="btn-start-descent" class="btn-preset" style="background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #a7f3d0;">▶ Run Race</button>
+              <button id="btn-step-descent" class="btn-preset">⏭ Step 1x</button>
               <button id="btn-reset-descent" class="btn-preset">↺ Reset Balls</button>
+              <button id="btn-clear-trails" class="btn-preset">🧹 Clear Trails</button>
+            </div>
+            <p class="section-hint" style="margin-top: 0.35rem;">Click anywhere on the canvas to set a custom starting position!</p>
+          </section>
+
+          <!-- Hessian Curvature & Conditioning -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>📐</span> Hessian Curvature (∇²L) &amp; Condition</h2>
+              <span id="badge-hessian-class" class="telemetry-badge badge-det-pos">Positive Definite</span>
+            </div>
+            <div class="matrix-container" style="justify-content: center; padding: 0.4rem 0;">
+              <div id="val-hessian-matrix" class="comp-matrix" style="font-size: 0.8rem; text-align: center; width: 100%;">
+                [ 1.00,  0.00 ]<br>[ 0.00,  2.00 ]
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.35rem;">
+              <span>Curvatures (λ₁, λ₂):</span>
+              <strong id="val-hessian-eigens" style="font-family: var(--font-mono); color: #38bdf8;">λ₁=1.00, λ₂=2.00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.25rem;">
+              <span>Condition Number κ:</span>
+              <strong id="val-hessian-cond" style="font-family: var(--font-mono); color: #10b981;">κ = 2.00</strong>
             </div>
           </section>
 

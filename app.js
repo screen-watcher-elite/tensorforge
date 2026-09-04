@@ -1325,9 +1325,17 @@
 
   // ── LossLab Optimization Sandbox (Mode 6) ─────────────────────────────────
 
-  function initLossParticles() {
-    var startX = state.lossKey === 'rosenbrock' ? -1.2 : -2.0;
-    var startY = state.lossKey === 'rosenbrock' ? 1.5 : 2.0;
+  function initLossParticles(customX, customY) {
+    var startX = -2.0, startY = 2.0;
+    if (typeof customX === 'number' && typeof customY === 'number') {
+      startX = customX; startY = customY;
+    } else if (state.lossKey === 'rosenbrock') {
+      startX = -1.2; startY = 1.5;
+    } else if (state.lossKey === 'beale') {
+      startX = 2.4; startY = 1.6;
+    } else if (state.lossKey === 'rastrigin') {
+      startX = 1.7; startY = 1.6;
+    }
 
     state.particles = [
       new OptimizerParticle('sgd', startX, startY, '#ef4444'),
@@ -1341,39 +1349,38 @@
     var lossFn = LossFunctions[state.lossKey] || LossFunctions.bowl;
     var domain = lossFn.domain;
 
-    // Draw Contour Lines on canvas
-    var gridN = 45;
-    var stepW = viewWidth / gridN;
-    var stepH = viewHeight / gridN;
+    drawBackgroundGrid();
 
+    // 1. Mathematically Aligned Energy Field Heatmap
+    var gridStep = 20;
     ctx.save();
-    for (var i = 0; i < gridN; i += 2) {
-      for (var j = 0; j < gridN; j += 2) {
-        var wx = ((i / gridN) - 0.5) * domain * 2;
-        var wy = -((j / gridN) - 0.5) * domain * 2;
-        var z = lossFn.evaluate(wx, wy);
-
-        // Normalize color
-        var intensity = Math.min(1, Math.max(0, Math.log(Math.abs(z) + 1) / 3));
-        ctx.fillStyle = 'rgba(' + Math.round(intensity * 120 + 20) + ', 40, ' + Math.round((1 - intensity) * 140 + 40) + ', 0.18)';
-        ctx.fillRect(i * stepW, j * stepH, stepW * 2, stepH * 2);
+    for (var px = 0; px < viewWidth; px += gridStep) {
+      for (var py = 0; py < viewHeight; py += gridStep) {
+        var w = screenToWorld(px + gridStep / 2, py + gridStep / 2);
+        var z = lossFn.evaluate(w.x, w.y);
+        var intensity = Math.min(1, Math.max(0, Math.log(Math.abs(z) + 1) / 3.8));
+        var rCol = Math.round(intensity * 130 + 15);
+        var bCol = Math.round((1 - intensity) * 150 + 40);
+        ctx.fillStyle = 'rgba(' + rCol + ', 35, ' + bCol + ', 0.18)';
+        ctx.fillRect(px, py, gridStep, gridStep);
       }
     }
     ctx.restore();
 
     drawAxes();
 
-    // If running, step optimizers
+    // 2. If running, step optimizers
     if (state.lossRunning) {
       state.particles.forEach(function (p) {
         p.step(lossFn, state.learningRate);
       });
     }
 
-    // Draw Particles & Trajectories
+    // 3. Draw Particles, Negative Gradient Vectors (-∇L) & Fading Trajectories
     state.particles.forEach(function (p) {
       // Trajectory line
       if (p.history.length > 1) {
+        ctx.save();
         ctx.beginPath();
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 2;
@@ -1383,28 +1390,93 @@
           else ctx.lineTo(sp.x, sp.y);
         });
         ctx.stroke();
+        ctx.restore();
       }
 
-      // Ball
+      // Negative gradient vector arrow (-∇L) showing immediate descent direction
+      var grad = lossFn.gradient(p.x, p.y);
+      var gMag = Math.hypot(grad.dx, grad.dy);
+      if (gMag > 0.05) {
+        var dirX = -grad.dx / gMag;
+        var dirY = -grad.dy / gMag;
+        var arrowLen = Math.min(1.2, Math.max(0.4, gMag * 0.15));
+        var oSp = worldToScreen(p.x, p.y);
+        var tipSp = worldToScreen(p.x + dirX * arrowLen, p.y + dirY * arrowLen);
+        drawArrow(oSp.x, oSp.y, tipSp.x, tipSp.y, p.color, 1.8);
+      }
+
+      // Particle Ball
       var curSp = worldToScreen(p.x, p.y);
       ctx.beginPath();
       ctx.fillStyle = p.color;
-      ctx.arc(curSp.x, curSp.y, 6, 0, Math.PI * 2);
+      ctx.arc(curSp.x, curSp.y, 6.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.6;
       ctx.stroke();
     });
 
-    // Update Telemetry Values
+    // 4. Update Telemetry Values & Step Count
     if (state.particles.length >= 4) {
       lossValSGD.textContent = lossFn.evaluate(state.particles[0].x, state.particles[0].y).toFixed(3);
       lossValMom.textContent = lossFn.evaluate(state.particles[1].x, state.particles[1].y).toFixed(3);
       lossValRMS.textContent = lossFn.evaluate(state.particles[2].x, state.particles[2].y).toFixed(3);
       lossValAdam.textContent = lossFn.evaluate(state.particles[3].x, state.particles[3].y).toFixed(3);
+
+      var elSteps = $('val-loss-steps');
+      if (elSteps) elSteps.textContent = 'Step: ' + state.particles[0].stepCount;
     }
 
-    drawTopRightHUDTag('LossLab: ' + lossFn.name + ' (LR: ' + state.learningRate + ')');
+    // 5. Compute Hessian Matrix (∇²L) at Leading Optimizer Position (Adam or Origin)
+    var probeP = state.particles[3] || state.particles[0];
+    var probeX = probeP ? probeP.x : 0;
+    var probeY = probeP ? probeP.y : 0;
+    var H = lossFn.hessian ? lossFn.hessian(probeX, probeY) : new Matrix2x2(1, 0, 0, 1);
+
+    var trH = H.trace();
+    var detH = H.determinant();
+    var discH = trH * trH - 4 * detH;
+    var sqrtDisc = Math.sqrt(Math.max(0, discH));
+    var lam1 = (trH + sqrtDisc) / 2;
+    var lam2 = (trH - sqrtDisc) / 2;
+
+    var abs1 = Math.abs(lam1), abs2 = Math.abs(lam2);
+    var maxLam = Math.max(abs1, abs2);
+    var minLam = Math.min(abs1, abs2);
+    var condNum = minLam > 1e-4 ? maxLam / minLam : 999.0;
+
+    var elHMat = $('val-hessian-matrix');
+    var elHEigens = $('val-hessian-eigens');
+    var elHCond = $('val-hessian-cond');
+    var badgeHClass = $('badge-hessian-class');
+
+    if (elHMat) {
+      elHMat.innerHTML = '[ ' + H.a.toFixed(2) + ', ' + H.b.toFixed(2) + ' ]<br>[ ' + H.c.toFixed(2) + ', ' + H.d.toFixed(2) + ' ]';
+    }
+    if (elHEigens) {
+      elHEigens.textContent = 'λ₁=' + lam1.toFixed(2) + ', λ₂=' + lam2.toFixed(2);
+    }
+    if (elHCond) {
+      elHCond.textContent = condNum > 100 ? 'κ > 100 (High Anisotropy)' : 'κ = ' + condNum.toFixed(2) + (condNum > 10 ? ' (Ill-Conditioned Ravine)' : ' (Well-Conditioned)');
+      elHCond.style.color = condNum > 10 ? '#ef4444' : '#10b981';
+    }
+    if (badgeHClass) {
+      if (lam1 > 0 && lam2 > 0) {
+        badgeHClass.textContent = 'Positive Definite (Minima)';
+        badgeHClass.className = 'telemetry-badge badge-det-pos';
+      } else if (lam1 < 0 && lam2 < 0) {
+        badgeHClass.textContent = 'Negative Definite (Maxima)';
+        badgeHClass.className = 'telemetry-badge badge-det-neg';
+      } else if (lam1 * lam2 < 0) {
+        badgeHClass.textContent = 'Indefinite (Saddle Point)';
+        badgeHClass.className = 'telemetry-badge badge-det-zero';
+      } else {
+        badgeHClass.textContent = 'Degenerate Curvature';
+        badgeHClass.className = 'telemetry-badge badge-det-zero';
+      }
+    }
+
+    drawTopRightHUDTag('LossLab: ' + lossFn.name + ' (α=' + state.learningRate + ')');
 
     if (state.lossRunning) {
       requestAnimationFrame(render);
@@ -2120,6 +2192,13 @@
     if (state.mode === '3d') {
       state.draggingTarget = '3d_orbit';
       state.dragStartMouse = pos;
+      return;
+    }
+
+    if (state.mode === 'loss') {
+      var w = screenToWorld(pos.x, pos.y);
+      initLossParticles(w.x, w.y);
+      render();
       return;
     }
 
@@ -2922,6 +3001,27 @@
       initLossParticles();
       render();
     });
+
+    var btnStepDescent = $('btn-step-descent');
+    if (btnStepDescent) {
+      btnStepDescent.addEventListener('click', function () {
+        var lossFn = LossFunctions[state.lossKey] || LossFunctions.bowl;
+        state.particles.forEach(function (p) {
+          p.step(lossFn, state.learningRate);
+        });
+        render();
+      });
+    }
+
+    var btnClearTrails = $('btn-clear-trails');
+    if (btnClearTrails) {
+      btnClearTrails.addEventListener('click', function () {
+        state.particles.forEach(function (p) {
+          p.history = [{ x: p.x, y: p.y }];
+        });
+        render();
+      });
+    }
 
     // Autograd Controls
     document.querySelectorAll('.btn-autograd-preset[data-graph]').forEach(function (btn) {

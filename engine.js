@@ -720,12 +720,14 @@
       name: 'Convex Quadratic Bowl',
       evaluate: function (x, y) { return 0.5 * (x * x + 2 * y * y); },
       gradient: function (x, y) { return { dx: x, dy: 2 * y }; },
+      hessian: function (x, y) { return new Matrix2x2(1, 0, 0, 2); },
       domain: 3.0
     },
     saddle: {
       name: 'Saddle Point (Hyperbolic Paraboloid)',
       evaluate: function (x, y) { return 0.5 * (x * x - y * y); },
       gradient: function (x, y) { return { dx: x, dy: -y }; },
+      hessian: function (x, y) { return new Matrix2x2(1, 0, 0, -1); },
       domain: 2.5
     },
     rosenbrock: {
@@ -737,7 +739,61 @@
           dy: 20 * (y - x * x)
         };
       },
+      hessian: function (x, y) {
+        var hxx = 2 - 40 * y + 120 * x * x;
+        var hxy = -40 * x;
+        var hyy = 20;
+        return new Matrix2x2(hxx, hxy, hxy, hyy);
+      },
       domain: 2.0
+    },
+    beale: {
+      name: "Beale's Anisotropic Ravine",
+      evaluate: function (x, y) {
+        var f1 = 1.5 - x + x * y;
+        var f2 = 2.25 - x + x * y * y;
+        return f1 * f1 + f2 * f2;
+      },
+      gradient: function (x, y) {
+        var f1 = 1.5 - x + x * y;
+        var f2 = 2.25 - x + x * y * y;
+        var df1_dx = y - 1, df1_dy = x;
+        var df2_dx = y * y - 1, df2_dy = 2 * x * y;
+        return {
+          dx: 2 * (f1 * df1_dx + f2 * df2_dx),
+          dy: 2 * (f1 * df1_dy + f2 * df2_dy)
+        };
+      },
+      hessian: function (x, y) {
+        var eps = 1e-4;
+        var g = this.gradient(x, y);
+        var gx_dx = this.gradient(x + eps, y).dx;
+        var gx_dy = this.gradient(x, y + eps).dx;
+        var gy_dy = this.gradient(x, y + eps).dy;
+        var hxx = (gx_dx - g.dx) / eps;
+        var hxy = (gx_dy - g.dx) / eps;
+        var hyy = (gy_dy - g.dy) / eps;
+        return new Matrix2x2(hxx, hxy, hxy, hyy);
+      },
+      domain: 2.5
+    },
+    rastrigin: {
+      name: "Rastrigin Multimodal Traps",
+      evaluate: function (x, y) {
+        return 20 + (x * x - 10 * Math.cos(2 * Math.PI * x)) + (y * y - 10 * Math.cos(2 * Math.PI * y));
+      },
+      gradient: function (x, y) {
+        return {
+          dx: 2 * x + 20 * Math.PI * Math.sin(2 * Math.PI * x),
+          dy: 2 * y + 20 * Math.PI * Math.sin(2 * Math.PI * y)
+        };
+      },
+      hessian: function (x, y) {
+        var hxx = 2 + 40 * Math.PI * Math.PI * Math.cos(2 * Math.PI * x);
+        var hyy = 2 + 40 * Math.PI * Math.PI * Math.cos(2 * Math.PI * y);
+        return new Matrix2x2(hxx, 0, 0, hyy);
+      },
+      domain: 2.2
     }
   };
 
