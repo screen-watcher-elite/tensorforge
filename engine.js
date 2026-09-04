@@ -280,6 +280,22 @@
     };
   };
 
+  Matrix2x2.commutator = function (m1, m2) {
+    var ab = m1.multiply(m2);
+    var ba = m2.multiply(m1);
+    return new Matrix2x2(
+      ab.a - ba.a,
+      ab.b - ba.b,
+      ab.c - ba.c,
+      ab.d - ba.d
+    );
+  };
+
+  Matrix2x2.commutatorNorm = function (m1, m2) {
+    var comm = Matrix2x2.commutator(m1, m2);
+    return Math.sqrt(comm.a * comm.a + comm.b * comm.b + comm.c * comm.c + comm.d * comm.d);
+  };
+
   Matrix2x2.lerp = function (m1, m2, t) {
     return new Matrix2x2(
       m1.a + (m2.a - m1.a) * t,

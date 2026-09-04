@@ -288,6 +288,12 @@
         drawTransformedGrid(activeMatrix);
       }
 
+      if (state.mode === 'mult' && state.multT > 0.45) {
+        var firstMat = state.multOrder === 'AB' ? state.matrixB : state.matrix;
+        var firstLabel = state.multOrder === 'AB' ? 'Step 1: B·x' : 'Step 1: A·x';
+        drawGhostShape(firstMat, firstLabel);
+      }
+
       drawTransformedShape(activeMatrix);
 
       if (Math.abs(activeMatrix.determinant()) < Engine.EPSILON) {
@@ -1599,12 +1605,79 @@
     }
   }
 
+  function drawGhostShape(ghostMatrix, label) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+
+    var o = worldToScreen(0, 0);
+    var iPos = worldToScreen(ghostMatrix.a, ghostMatrix.c);
+    var jPos = worldToScreen(ghostMatrix.b, ghostMatrix.d);
+    var sum = worldToScreen(ghostMatrix.a + ghostMatrix.b, ghostMatrix.c + ghostMatrix.d);
+
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(iPos.x, iPos.y);
+    ctx.lineTo(sum.x, sum.y);
+    ctx.lineTo(jPos.x, jPos.y);
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.fillStyle = '#7dd3fc';
+    ctx.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+    ctx.textAlign = 'center';
+    ctx.fillText(label, (o.x + sum.x) / 2, (o.y + sum.y) / 2 - 8);
+    ctx.restore();
+  }
+
   function updateMultComparison() {
     var AB = state.matrix.multiply(state.matrixB);
     var BA = state.matrixB.multiply(state.matrix);
 
-    valProdAB.innerHTML = '[ ' + AB.a.toFixed(2) + ', ' + AB.b.toFixed(2) + ' ]<br>[ ' + AB.c.toFixed(2) + ', ' + AB.d.toFixed(2) + ' ]';
-    valProdBA.innerHTML = '[ ' + BA.a.toFixed(2) + ', ' + BA.b.toFixed(2) + ' ]<br>[ ' + BA.c.toFixed(2) + ', ' + BA.d.toFixed(2) + ' ]';
+    if (valProdAB) valProdAB.innerHTML = '[ ' + AB.a.toFixed(2) + ', ' + AB.b.toFixed(2) + ' ]<br>[ ' + AB.c.toFixed(2) + ', ' + AB.d.toFixed(2) + ' ]';
+    if (valProdBA) valProdBA.innerHTML = '[ ' + BA.a.toFixed(2) + ', ' + BA.b.toFixed(2) + ' ]<br>[ ' + BA.c.toFixed(2) + ', ' + BA.d.toFixed(2) + ' ]';
+
+    // Commutator [A, B] = AB - BA
+    var comm = Matrix2x2.commutator(state.matrix, state.matrixB);
+    var commNorm = Matrix2x2.commutatorNorm(state.matrix, state.matrixB);
+    var badgeComm = $('badge-commutator');
+    var valComm = $('val-commutator-matrix');
+
+    if (badgeComm) {
+      if (commNorm < 1e-4) {
+        badgeComm.textContent = 'Commutative: [A, B] = 0';
+        badgeComm.className = 'telemetry-badge badge-det-pos';
+      } else {
+        badgeComm.textContent = 'AB ≠ BA (Norm: ' + commNorm.toFixed(2) + ')';
+        badgeComm.className = 'telemetry-badge badge-det-neg';
+      }
+    }
+    if (valComm) {
+      valComm.textContent = '[ ' + comm.a.toFixed(2) + ', ' + comm.b.toFixed(2) + ' ; ' + comm.c.toFixed(2) + ', ' + comm.d.toFixed(2) + ' ]';
+    }
+
+    // Determinant Multiplicative Law: det(AB) = det(A) * det(B)
+    var detA = state.matrix.determinant();
+    var detB = state.matrixB.determinant();
+    var detAB = AB.determinant();
+    var factorsEl = $('det-mult-factors');
+    var productEl = $('det-mult-product');
+    if (factorsEl) factorsEl.textContent = formatSafe(detA) + ' × ' + formatSafe(detB);
+    if (productEl) productEl.innerHTML = formatSafe(detAB) + ' <span style="color:#6ee7b7;">(=' + (detA * detB).toFixed(2) + ') ✓</span>';
+
+    // Bottom drawer labels
+    var badgeA = $('mult-matrix-a-badge');
+    var badgeB = $('mult-matrix-b-badge');
+    if (badgeA) badgeA.textContent = 'A [' + state.matrix.a.toFixed(1) + ', ' + state.matrix.c.toFixed(1) + ']';
+    if (badgeB) badgeB.textContent = 'B [' + state.matrixB.a.toFixed(1) + ', ' + state.matrixB.c.toFixed(1) + ']';
+
+    // Sync dual matrix inputs in panel-mult
+    var maA = $('mat-mult-a-a'), maB = $('mat-mult-a-b'), maC = $('mat-mult-a-c'), maD = $('mat-mult-a-d');
+    if (maA) maA.value = state.matrix.a.toFixed(2);
+    if (maB) maB.value = state.matrix.b.toFixed(2);
+    if (maC) maC.value = state.matrix.c.toFixed(2);
+    if (maD) maD.value = state.matrix.d.toFixed(2);
   }
 
   function syncMatrixInputs() {
@@ -1612,6 +1685,12 @@
     matBInput.value = state.matrix.b.toFixed(2);
     matCInput.value = state.matrix.c.toFixed(2);
     matDInput.value = state.matrix.d.toFixed(2);
+
+    var maA = $('mat-mult-a-a'), maB = $('mat-mult-a-b'), maC = $('mat-mult-a-c'), maD = $('mat-mult-a-d');
+    if (maA) maA.value = state.matrix.a.toFixed(2);
+    if (maB) maB.value = state.matrix.b.toFixed(2);
+    if (maC) maC.value = state.matrix.c.toFixed(2);
+    if (maD) maD.value = state.matrix.d.toFixed(2);
   }
 
   function readMatrixInputs() {
@@ -2169,8 +2248,30 @@
       inp.addEventListener('input', readMatrixInputs);
     });
     [matBAInput, matBBInput, matBCInput, matBDInput].forEach(function (inp) {
-      inp.addEventListener('input', readMatrixBInputs);
+      if (inp) inp.addEventListener('input', readMatrixBInputs);
     });
+
+    // Dual Matrix A Inputs inside Panel Mult
+    var maA = $('mat-mult-a-a'), maB = $('mat-mult-a-b'), maC = $('mat-mult-a-c'), maD = $('mat-mult-a-d');
+    [maA, maB, maC, maD].forEach(function (inp) {
+      if (inp) {
+        inp.addEventListener('input', function () {
+          state.matrix = new Matrix2x2(
+            parseFloat(maA.value) || 0,
+            parseFloat(maB.value) || 0,
+            parseFloat(maC.value) || 0,
+            parseFloat(maD.value) || 0
+          );
+          matAInput.value = state.matrix.a.toFixed(2);
+          matBInput.value = state.matrix.b.toFixed(2);
+          matCInput.value = state.matrix.c.toFixed(2);
+          matDInput.value = state.matrix.d.toFixed(2);
+          updateTelemetry();
+          render();
+        });
+      }
+    });
+
     [vecUXInput, vecUYInput, vecVXInput, vecVYInput].forEach(function (inp) {
       inp.addEventListener('input', readVectorInputs);
     });
@@ -2648,18 +2749,129 @@
       });
     }
 
-    // Matrix multiplication drawer
+    // Matrix multiplication drawer & Tab 3 features
     multSlider.addEventListener('input', function () {
       state.multT = parseFloat(this.value);
       multTDisplay.textContent = state.multT.toFixed(2);
+      document.querySelectorAll('.btn-mult-step').forEach(function (b) {
+        var s = parseFloat(b.getAttribute('data-step'));
+        b.classList.toggle('active', Math.abs(s - state.multT) < 0.15);
+      });
       render();
     });
 
     btnSwapMult.addEventListener('click', function () {
       state.multOrder = state.multOrder === 'AB' ? 'BA' : 'AB';
       btnSwapMult.textContent = 'Order: ' + state.multOrder;
+      var step1Btn = document.querySelector('.btn-mult-step[data-step="0.5"]');
+      var step2Btn = document.querySelector('.btn-mult-step[data-step="1.0"]');
+      if (state.multOrder === 'AB') {
+        if (step1Btn) step1Btn.textContent = '1: First Map (B)';
+        if (step2Btn) step2Btn.textContent = '2: Composite (AB)';
+      } else {
+        if (step1Btn) step1Btn.textContent = '1: First Map (A)';
+        if (step2Btn) step2Btn.textContent = '2: Composite (BA)';
+      }
+      updateTelemetry();
       render();
     });
+
+    var btnMatBInvert = $('btn-mat-b-invert');
+    if (btnMatBInvert) {
+      btnMatBInvert.addEventListener('click', function () {
+        var inv = state.matrixB.inverse();
+        if (inv) {
+          state.matrixB = inv;
+          matBAInput.value = inv.a.toFixed(2);
+          matBBInput.value = inv.b.toFixed(2);
+          matBCInput.value = inv.c.toFixed(2);
+          matBDInput.value = inv.d.toFixed(2);
+          updateTelemetry();
+          render();
+        } else {
+          alert('Cannot invert singular Matrix B: det(B) = 0!');
+        }
+      });
+    }
+
+    // Step jump buttons
+    document.querySelectorAll('.btn-mult-step').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var step = parseFloat(this.getAttribute('data-step'));
+        state.multT = step;
+        multSlider.value = step;
+        multTDisplay.textContent = step.toFixed(2);
+        document.querySelectorAll('.btn-mult-step').forEach(function (b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        render();
+      });
+    });
+
+    // Preset pairs
+    document.querySelectorAll('.btn-mult-pair').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var pair = this.getAttribute('data-pair');
+        if (pair === 'rot-shear') {
+          state.matrix = Matrix2x2.shear(0.6, 0);
+          state.matrixB = Matrix2x2.rotation(Math.PI / 4);
+        } else if (pair === 'commuting-rot') {
+          state.matrix = Matrix2x2.rotation(Math.PI / 6);
+          state.matrixB = Matrix2x2.rotation(Math.PI / 3);
+        } else if (pair === 'inverse-pair') {
+          state.matrix = new Matrix2x2(1.2, 0.4, 0.2, 1.0);
+          state.matrixB = state.matrix.inverse() || Matrix2x2.identity();
+        } else if (pair === 'scale-reflect') {
+          state.matrix = Matrix2x2.scaling(1.5, 0.7);
+          state.matrixB = Matrix2x2.reflection(Math.PI / 4);
+        }
+        syncMatrixInputs();
+        matBAInput.value = state.matrixB.a.toFixed(2);
+        matBBInput.value = state.matrixB.b.toFixed(2);
+        matBCInput.value = state.matrixB.c.toFixed(2);
+        matBDInput.value = state.matrixB.d.toFixed(2);
+        updateTelemetry();
+        render();
+      });
+    });
+
+    // Run sequence animation
+    var multAnimId = null;
+    var btnRunMultSeq = $('btn-run-mult-sequence');
+    if (btnRunMultSeq) {
+      btnRunMultSeq.addEventListener('click', function () {
+        if (multAnimId) {
+          cancelAnimationFrame(multAnimId);
+          multAnimId = null;
+          btnRunMultSeq.textContent = '▶ Play Sequence';
+          return;
+        }
+        state.multT = 0;
+        multSlider.value = 0;
+        multTDisplay.textContent = '0.00';
+        btnRunMultSeq.textContent = '⏹ Stop Sequence';
+        var startTime = performance.now();
+        var duration = 2400; // 2.4 seconds
+        function stepSeq(now) {
+          var elapsed = now - startTime;
+          var p = Math.min(1, elapsed / duration);
+          state.multT = p;
+          multSlider.value = p;
+          multTDisplay.textContent = p.toFixed(2);
+          document.querySelectorAll('.btn-mult-step').forEach(function (b) {
+            var s = parseFloat(b.getAttribute('data-step'));
+            b.classList.toggle('active', Math.abs(s - p) < 0.2);
+          });
+          render();
+          if (p < 1) {
+            multAnimId = requestAnimationFrame(stepSeq);
+          } else {
+            multAnimId = null;
+            btnRunMultSeq.textContent = '▶ Play Sequence';
+          }
+        }
+        multAnimId = requestAnimationFrame(stepSeq);
+      });
+    }
 
     // Zoom & Pan Actions
     $('btn-zoom-in').addEventListener('click', function () { state.scale = Math.min(180, state.scale * 1.2); render(); });
