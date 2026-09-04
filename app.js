@@ -31,7 +31,7 @@
   var state = {
     // Mode: 'transform' | 'eigen' | 'mult' | 'vectors' | '3d' | 'loss' | 'autograd' | 'notes' | 'quiz'
     mode: 'transform',
-    shape: 'square', // 'square' | 'circle' | 'house' | 'letterF' | 'cloud'
+    shape: 'square', // 'square' | 'circle' | 'house' | 'letterF' | 'polygon' | 'cloud'
 
     // 2D Matrices
     matrix: new Matrix2x2(1.5, 0.5, 0.5, 1.2),
@@ -39,8 +39,14 @@
     multT: 0,
     multOrder: 'AB',
 
-    // 2D Vectors & Probes
+    // Continuous Morph Timeline (I -> A)
+    morphT: 1.0,
+    morphPlaying: false,
+
+    // 2D Vectors, Solver & Probes
     customVec: new Vector2D(1.0, 1.0),
+    solveB: new Vector2D(2.0, 1.5),
+    showSolver: true,
     eigenProbe: new Vector2D(1.0, 0.0),
     vecU: new Vector2D(2.0, 1.0),
     vecV: new Vector2D(1.0, 2.0),
@@ -294,8 +300,13 @@
 
       if (state.mode === 'eigen') {
         drawEigenHunter(activeMatrix);
-      } else if (state.showCustomVec) {
-        drawCustomVector(activeMatrix);
+      } else {
+        if (state.showCustomVec) {
+          drawCustomVector(activeMatrix);
+        }
+        if (state.showSolver && state.mode === 'transform') {
+          drawLinearSolver(activeMatrix);
+        }
       }
     }
   }
@@ -312,6 +323,9 @@
       } else {
         return Matrix2x2.lerp(M1, product, (t - 0.5) * 2);
       }
+    }
+    if (state.mode === 'transform' && typeof state.morphT === 'number' && state.morphT < 1.0) {
+      return Matrix2x2.lerp(Matrix2x2.identity(), state.matrix, state.morphT);
     }
     return state.matrix;
   }
@@ -463,6 +477,25 @@
       ctx.fill();
       ctx.stroke();
 
+    } else if (state.shape === 'polygon') {
+      var starPts = [];
+      for (var p = 0; p < 10; p++) {
+        var r = p % 2 === 0 ? 1.0 : 0.42;
+        var a = (p * Math.PI) / 5 - Math.PI / 2;
+        starPts.push(new Vector2D(r * Math.cos(a), r * Math.sin(a)));
+      }
+      ctx.beginPath();
+      starPts.forEach(function (pt, idx) {
+        var t = matrix.apply(pt);
+        var sp = worldToScreen(t.x, t.y);
+        if (idx === 0) ctx.moveTo(sp.x, sp.y);
+        else ctx.lineTo(sp.x, sp.y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      drawTopRightHUDTag('Custom 5-Pointed Star Polygon Transformation');
+
     } else if (state.shape === 'cloud') {
       ctx.fillStyle = det >= 0 ? 'rgba(99, 102, 241, 0.7)' : 'rgba(245, 158, 11, 0.7)';
       scatterPoints.forEach(function (pt) {
@@ -476,6 +509,33 @@
     }
 
     ctx.restore();
+  }
+
+  // ── Linear System Solver Renderer (Ax = b) ────────────────────────────────
+
+  function drawLinearSolver(matrix) {
+    if (!state.showSolver) return;
+    var o = worldToScreen(0, 0);
+
+    // Target vector b (amber / gold)
+    var bPos = worldToScreen(state.solveB.x, state.solveB.y);
+    drawArrow(o.x, o.y, bPos.x, bPos.y, '#f59e0b', 2.5);
+    drawVectorHandle(bPos.x, bPos.y, '#f59e0b', 'solveB', state.hoverTarget === 'solveB');
+    drawVectorLabel('Target b [' + state.solveB.x.toFixed(1) + ', ' + state.solveB.y.toFixed(1) + ']', bPos.x, bPos.y, '#f59e0b', state.solveB.angle());
+
+    // Preimage x = A^-1 b (purple)
+    var det = matrix.determinant();
+    if (Math.abs(det) > Engine.EPSILON) {
+      var xVec = matrix.solve(state.solveB);
+      if (xVec) {
+        var xPos = worldToScreen(xVec.x, xVec.y);
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        drawArrow(o.x, o.y, xPos.x, xPos.y, '#c084fc', 2);
+        ctx.restore();
+        drawVectorLabel('x = A⁻¹b [' + xVec.x.toFixed(1) + ', ' + xVec.y.toFixed(1) + ']', xPos.x, xPos.y, '#c084fc', xVec.angle());
+      }
+    }
   }
 
   function drawTopRightHUDTag(text) {
@@ -1349,6 +1409,34 @@
       transVecEl.textContent = '[ ' + formatSafe(vTrans.x) + ', ' + formatSafe(vTrans.y) + ' ]';
     }
 
+    // Basis Angle & Orthogonality
+    var basisAngleVal = $('basis-angle-val');
+    var badgeOrtho = $('badge-basis-ortho');
+    if (basisAngleVal && badgeOrtho) {
+      var angleRad = m.basisAngle();
+      var angleDeg = (angleRad * 180 / Math.PI).toFixed(1);
+      basisAngleVal.textContent = angleDeg + '°';
+      var isOrtho = m.isOrthogonalBasis();
+      badgeOrtho.textContent = isOrtho ? 'Orthogonal (90°)' : 'Skew';
+      badgeOrtho.className = isOrtho ? 'telemetry-badge badge-det-pos' : 'telemetry-badge';
+    }
+
+    // Linear System Solver (Ax = b => x = A^-1 b)
+    var readoutPreimage = $('readout-preimage');
+    var solverHint = $('solver-status-hint');
+    if (readoutPreimage && solverHint) {
+      if (Math.abs(det) < Engine.EPSILON) {
+        readoutPreimage.textContent = 'Singular (No Unique Sol)';
+        solverHint.innerHTML = '<span style="color:#f87171;">⚠️ Singular: det(A) = 0. Kernel dimension > 0; no unique preimage exists.</span>';
+      } else {
+        var xPre = m.solve(state.solveB);
+        if (xPre) {
+          readoutPreimage.textContent = '[ ' + formatSafe(xPre.x) + ', ' + formatSafe(xPre.y) + ' ]';
+          solverHint.innerHTML = 'Unique solution verified: <span style="color:#38bdf8;">T(x) = Ax ≡ target b</span>.';
+        }
+      }
+    }
+
     // Update Vector Sandbox Arithmetic
     var vecSum = state.vecU.add(state.vecV);
     var vecDiff = state.vecU.sub(state.vecV);
@@ -1458,7 +1546,19 @@
     if (Math.hypot(sx - jPos.x, sy - jPos.y) < threshold) return 'j';
     if (state.showCustomVec && Math.hypot(sx - vPos.x, sy - vPos.y) < threshold) return 'v';
 
+    if (state.mode === 'transform' && state.showSolver) {
+      var bPos = worldToScreen(state.solveB.x, state.solveB.y);
+      if (Math.hypot(sx - bPos.x, sy - bPos.y) < threshold) return 'solveB';
+    }
+
     return null;
+  }
+
+  function syncSolverInputs() {
+    var bx = $('solve-b-x');
+    var by = $('solve-b-y');
+    if (bx) bx.value = state.solveB.x.toFixed(2);
+    if (by) by.value = state.solveB.y.toFixed(2);
   }
 
   function onPointerDown(e) {
@@ -1523,6 +1623,11 @@
     } else if (state.draggingTarget === 'v') {
       state.customVec.x = sx; state.customVec.y = sy;
       syncCustomVectorInputs();
+      updateTelemetry();
+      render();
+    } else if (state.draggingTarget === 'solveB') {
+      state.solveB.x = sx; state.solveB.y = sy;
+      syncSolverInputs();
       updateTelemetry();
       render();
     } else if (state.draggingTarget === 'probe') {
@@ -1919,6 +2024,105 @@
         applyPreset(this.getAttribute('data-preset'));
       });
     });
+
+    // Quick Matrix Tools (Transpose, Invert, Negate, Identity)
+    var btnMatTranspose = $('btn-mat-transpose');
+    if (btnMatTranspose) {
+      btnMatTranspose.addEventListener('click', function () {
+        state.matrix = state.matrix.transpose();
+        syncMatrixInputs(); updateTelemetry(); render();
+      });
+    }
+
+    var btnMatInverse = $('btn-mat-inverse');
+    if (btnMatInverse) {
+      btnMatInverse.addEventListener('click', function () {
+        var inv = state.matrix.inverse();
+        if (inv) {
+          state.matrix = inv;
+          syncMatrixInputs(); updateTelemetry(); render();
+        } else {
+          alert('Cannot invert singular matrix: det(A) = 0!');
+        }
+      });
+    }
+
+    var btnMatNegate = $('btn-mat-negate');
+    if (btnMatNegate) {
+      btnMatNegate.addEventListener('click', function () {
+        state.matrix = new Matrix2x2(-state.matrix.a, -state.matrix.b, -state.matrix.c, -state.matrix.d);
+        syncMatrixInputs(); updateTelemetry(); render();
+      });
+    }
+
+    var btnMatIdentity = $('btn-mat-identity');
+    if (btnMatIdentity) {
+      btnMatIdentity.addEventListener('click', function () {
+        applyPreset('identity');
+      });
+    }
+
+    // Morph Timeline Controls
+    var sliderMorph = $('slider-morph');
+    var valMorph = $('val-morph');
+    var btnMorphPlay = $('btn-morph-play');
+    var morphTimer = null;
+
+    if (sliderMorph) {
+      sliderMorph.addEventListener('input', function () {
+        state.morphT = parseFloat(this.value);
+        if (valMorph) valMorph.textContent = Math.round(state.morphT * 100) + '%';
+        render();
+      });
+    }
+
+    if (btnMorphPlay) {
+      btnMorphPlay.addEventListener('click', function () {
+        state.morphPlaying = !state.morphPlaying;
+        btnMorphPlay.textContent = state.morphPlaying ? '⏸ Pause' : '▶ Play';
+        if (state.morphPlaying) {
+          if (state.morphT >= 1.0) state.morphT = 0;
+          var runMorph = function () {
+            if (!state.morphPlaying) return;
+            state.morphT += 0.012;
+            if (state.morphT > 1.0) {
+              state.morphT = 0.0;
+            }
+            if (sliderMorph) sliderMorph.value = state.morphT;
+            if (valMorph) valMorph.textContent = Math.round(state.morphT * 100) + '%';
+            render();
+            morphTimer = requestAnimationFrame(runMorph);
+          };
+          morphTimer = requestAnimationFrame(runMorph);
+        } else {
+          if (morphTimer) cancelAnimationFrame(morphTimer);
+        }
+      });
+    }
+
+    // Linear System Solver Controls
+    var solveBX = $('solve-b-x');
+    var solveBY = $('solve-b-y');
+    if (solveBX && solveBY) {
+      var onSolveInput = function () {
+        state.solveB.x = parseFloat(solveBX.value) || 0;
+        state.solveB.y = parseFloat(solveBY.value) || 0;
+        updateTelemetry();
+        render();
+      };
+      solveBX.addEventListener('input', onSolveInput);
+      solveBY.addEventListener('input', onSolveInput);
+    }
+
+    var btnToggleSolver = $('btn-toggle-solver');
+    if (btnToggleSolver) {
+      btnToggleSolver.addEventListener('click', function () {
+        state.showSolver = !state.showSolver;
+        this.textContent = state.showSolver ? 'Active' : 'Hidden';
+        this.className = state.showSolver ? 'telemetry-badge badge-det-pos' : 'telemetry-badge badge-det-neg';
+        render();
+      });
+    }
 
     // Matrix powers stepper — previews A^k without permanently mutating state.matrix
     document.querySelectorAll('.btn-power[data-power]').forEach(function (btn) {

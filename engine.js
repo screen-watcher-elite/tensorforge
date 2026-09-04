@@ -233,6 +233,38 @@
     return new Vector2D(0, 0);
   };
 
+  // Solve linear system Ax = b using inverse / Cramer's Rule
+  Matrix2x2.prototype.solve = function (bVec) {
+    var det = this.determinant();
+    if (Math.abs(det) < EPSILON) return null; // Singular, no unique solution
+    // x = (b1*d - b2*b) / det
+    // y = (a*b2 - c*b1) / det
+    var invDet = 1 / det;
+    return new Vector2D(
+      (bVec.x * this.d - bVec.y * this.b) * invDet,
+      (this.a * bVec.y - this.c * bVec.x) * invDet
+    );
+  };
+
+  // Angle in radians between transformed basis vectors i_hat and j_hat
+  Matrix2x2.prototype.basisAngle = function () {
+    var col1 = this.getCol1();
+    var col2 = this.getCol2();
+    var m1 = col1.magnitude();
+    var m2 = col2.magnitude();
+    if (m1 < EPSILON || m2 < EPSILON) return 0;
+    var dot = col1.dot(col2);
+    var cosTheta = Math.max(-1, Math.min(1, dot / (m1 * m2)));
+    return Math.acos(cosTheta);
+  };
+
+  // Returns true if basis vectors are mutually perpendicular (dot product = 0)
+  Matrix2x2.prototype.isOrthogonalBasis = function () {
+    var col1 = this.getCol1();
+    var col2 = this.getCol2();
+    return Math.abs(col1.dot(col2)) < 1e-4;
+  };
+
   Matrix2x2.lerp = function (m1, m2, t) {
     return new Matrix2x2(
       m1.a + (m2.a - m1.a) * t,

@@ -77,6 +77,12 @@
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>🔲</span> Transformation Matrix (A)</h2>
+              <div class="quick-matrix-tools">
+                <button id="btn-mat-transpose" class="btn-micro" title="Transpose Matrix (Aᵀ)">Aᵀ</button>
+                <button id="btn-mat-inverse" class="btn-micro" title="Invert Matrix (A⁻¹)">A⁻¹</button>
+                <button id="btn-mat-negate" class="btn-micro" title="Negate Matrix (-A)">-A</button>
+                <button id="btn-mat-identity" class="btn-micro" title="Reset to Identity Matrix">I</button>
+              </div>
             </div>
 
             <div class="matrix-container">
@@ -95,7 +101,7 @@
               </div>
             </div>
 
-            <!-- Basis Vector Chips -->
+            <!-- Basis Vector Chips & Orthogonality Readout -->
             <div class="basis-legend">
               <div class="basis-chip">
                 <span class="basis-dot dot-i"></span>
@@ -104,6 +110,13 @@
               <div class="basis-chip">
                 <span class="basis-dot dot-j"></span>
                 <span>ĵ = [b, d]ᵀ</span>
+              </div>
+            </div>
+            <div class="basis-legend" style="margin-top: 0.35rem;">
+              <div id="basis-angle-chip" class="basis-chip" style="grid-column: span 2; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Basis Angle θ(î, ĵ):</span>
+                <strong id="basis-angle-val" style="color: #a5b4fc; font-family: var(--font-mono);">71.6°</strong>
+                <span id="badge-basis-ortho" class="telemetry-badge" style="font-size: 0.65rem;">Skew</span>
               </div>
             </div>
           </section>
@@ -135,6 +148,30 @@
             </div>
           </section>
 
+          <!-- Linear System Solver (Ax = b) -->
+          <section class="sidebar-section">
+            <div class="section-header">
+              <h2 class="section-title"><span>🔍</span> Linear System Solver (Ax = b)</h2>
+              <button id="btn-toggle-solver" class="telemetry-badge badge-det-pos" style="cursor: pointer; border: none;">Active</button>
+            </div>
+            <div class="vector-inputs-grid" style="grid-template-columns: 1fr; margin-bottom: 0.4rem;">
+              <div class="vec-input-card">
+                <div class="vec-coords-row">
+                  <span style="font-weight: 700; color: #f59e0b;">Target b:</span>
+                  <span>x:</span><input type="number" id="solve-b-x" class="matrix-input" step="0.25" value="2.00">
+                  <span>y:</span><input type="number" id="solve-b-y" class="matrix-input" step="0.25" value="1.50">
+                </div>
+              </div>
+            </div>
+            <div class="vector-readout-row" style="font-size: 0.76rem; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 0.3rem; padding: 0 0.2rem;">
+              <span>Preimage x = A⁻¹b:</span>
+              <strong id="readout-preimage" style="color: #c084fc; font-family: var(--font-mono);">[1.16, 0.52]</strong>
+            </div>
+            <div id="solver-status-hint" style="font-size: 0.72rem; color: #94a3b8; line-height: 1.25;">
+              Unique solution exists when det(A) ≠ 0. Drag target b handle on canvas.
+            </div>
+          </section>
+
           <!-- Shape To Transform -->
           <section class="sidebar-section">
             <div class="section-header">
@@ -145,14 +182,27 @@
               <button class="btn-shape" data-shape="circle">Unit Circle (SVD)</button>
               <button class="btn-shape" data-shape="house">House</button>
               <button class="btn-shape" data-shape="letterF">Letter F</button>
-              <button class="btn-shape" data-shape="cloud" style="grid-column: span 2;">Data Scatter Cloud (PCA / ML)</button>
+              <button class="btn-shape" data-shape="polygon">Star / Polygon</button>
+              <button class="btn-shape" data-shape="cloud">PCA Cloud</button>
             </div>
           </section>
 
-          <!-- Dynamic Controls (Rotation & Shear) -->
+          <!-- Dynamic Controls (Rotation, Shear & Continuous Morph) -->
           <section class="sidebar-section">
             <div class="section-header">
               <h2 class="section-title"><span>🎛</span> Continuous Controls</h2>
+            </div>
+
+            <!-- Continuous Morph Timeline -->
+            <div class="slider-group" style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-subtle);">
+              <div class="slider-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 0.3rem;">
+                  <span>Morph (I → A)</span>
+                  <button id="btn-morph-play" class="btn-micro" style="padding: 0.1rem 0.4rem;" title="Play/Pause Morph Animation">▶ Play</button>
+                </span>
+                <span id="val-morph" class="slider-val">100%</span>
+              </div>
+              <input type="range" id="slider-morph" class="custom-slider" min="0" max="1" value="1" step="0.01">
             </div>
 
             <div class="slider-group">
