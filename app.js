@@ -98,6 +98,10 @@
     ag_aff_b1: 0.2,
     ag_aff_b2: -0.3,
 
+    // Theory Vault Notes State
+    currentNotesTopic: 'matrix-transform',
+    exploredNotesTopics: ['matrix-transform'],
+
     // Display Toggles
     showCustomVec: true,
     showTransformedGrid: true,
@@ -1810,15 +1814,14 @@
   // ── Notes & Quiz Interactive Visual Blackboard ───────────────────────────
 
   function renderNotesCanvas() {
-    var topicSelect = $('notes-topic-select');
-    var topic = topicSelect ? topicSelect.value : 'matrix-transform';
+    var topic = state.currentNotesTopic || 'matrix-transform';
     var o = worldToScreen(0, 0);
 
-    drawTopRightHUDTag('Theory Vault: Interactive Concept Demonstration');
+    drawTopRightHUDTag('Theory Vault: Blackboard');
+    drawBackgroundGrid();
     drawAxes();
 
     if (topic === 'matrix-transform') {
-      // Draw grid, transformed basis, and landing column indicators
       var m = state.matrix;
       drawTransformedGrid(m);
       drawTransformedShape(m);
@@ -1827,60 +1830,181 @@
       var pJ = worldToScreen(m.b, m.d);
       drawVectorLabel('Col 1: î lands at [' + m.a.toFixed(1) + ', ' + m.c.toFixed(1) + ']', pI.x, pI.y, '#10b981');
       drawVectorLabel('Col 2: ĵ lands at [' + m.b.toFixed(1) + ', ' + m.d.toFixed(1) + ']', pJ.x, pJ.y, '#8b5cf6');
+
     } else if (topic === 'determinant') {
-      // Draw unit square to transformed parallelogram with signed area badge
-      var m = state.matrix;
-      drawTransformedShape(m);
-      drawBasisVectors(m);
-      var det = m.determinant();
-      var center = worldToScreen((m.a + m.b) / 2, (m.c + m.d) / 2);
+      var mDet = state.matrix;
+      // Draw unit square reference (original space)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      var u0 = worldToScreen(0, 0), u1 = worldToScreen(1, 0), u2 = worldToScreen(1, 1), u3 = worldToScreen(0, 1);
+      ctx.beginPath();
+      ctx.moveTo(u0.x, u0.y); ctx.lineTo(u1.x, u1.y); ctx.lineTo(u2.x, u2.y); ctx.lineTo(u3.x, u3.y); ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      drawTransformedShape(mDet);
+      drawBasisVectors(mDet);
+      var det = mDet.determinant();
+      var center = worldToScreen((mDet.a + mDet.b) / 2, (mDet.c + mDet.d) / 2);
       drawVectorLabel('Area Factor |det(A)| = ' + Math.abs(det).toFixed(2), center.x, center.y, '#38bdf8');
-      if (det < 0) {
-        drawVectorLabel('⚠️ Orientation Flipped (det < 0)', center.x, center.y + 22, '#f43f5e');
+      if (det < -0.01) {
+        drawVectorLabel('⚠️ Orientation Inverted (det < 0)', center.x, center.y + 22, '#f43f5e');
+      } else if (Math.abs(det) <= 0.01) {
+        drawVectorLabel('⚠️ Dimension Collapsed (det = 0, Area = 0)', center.x, center.y + 22, '#ef4444');
       } else {
         drawVectorLabel('✅ Orientation Preserved (det > 0)', center.x, center.y + 22, '#10b981');
       }
-    } else if (topic === 'eigenvalues') {
-      // Draw invariant span lines and pulsating vector along invariant direction
+
+    } else if (topic === 'eigenvalues' || topic === 'eigen') {
       drawEigenSpanLines(state.matrix);
       drawBasisVectors(state.matrix);
       var eigens = Engine.solveEigensystem(state.matrix);
       if (eigens.isReal && eigens.eigenvectors.length > 0) {
         var v1 = eigens.eigenvectors[0].vector;
-        var tScale = 1.2 + 0.6 * Math.sin(performance.now() / 350);
+        var tScale = 1.3 + 0.5 * Math.sin(performance.now() / 320);
         var scaled = new Vector2D(v1.x * tScale, v1.y * tScale);
         var p = worldToScreen(scaled.x, scaled.y);
         drawArrow(o.x, o.y, p.x, p.y, '#eab308', 3);
-        drawVectorLabel('Invariant Vector: Av = λv (Direction Never Rotates)', p.x, p.y, '#eab308');
+        drawVectorLabel('Invariant Vector: A·v = λ·v (Direction Never Rotates)', p.x, p.y, '#eab308');
+      } else {
+        drawVectorLabel('Complex Eigensystem: Space Rotates (No Real Invariant Lines)', o.x - 140, o.y - 80, '#c084fc');
       }
+
     } else if (topic === 'diagonalization') {
-      // Draw eigenbasis factorization diagram
       drawEigenSpanLines(state.matrix);
-      var eigens = Engine.solveEigensystem(state.matrix);
-      if (eigens.isReal && eigens.eigenvectors.length >= 2) {
-        var ev1 = eigens.eigenvectors[0].vector;
-        var ev2 = eigens.eigenvectors[1].vector;
+      var eigensDiag = Engine.solveEigensystem(state.matrix);
+      if (eigensDiag.isReal && eigensDiag.eigenvectors.length >= 2) {
+        var ev1 = eigensDiag.eigenvectors[0].vector;
+        var ev2 = eigensDiag.eigenvectors[1].vector;
         var p1 = worldToScreen(ev1.x, ev1.y);
         var p2 = worldToScreen(ev2.x, ev2.y);
         drawArrow(o.x, o.y, p1.x, p1.y, '#eab308', 2.5);
         drawArrow(o.x, o.y, p2.x, p2.y, '#a855f7', 2.5);
-        drawVectorLabel('Eigenbasis Axis 1 (λ₁ = ' + eigens.eigenvalues[0].value.toFixed(2) + ')', p1.x, p1.y, '#eab308');
-        drawVectorLabel('Eigenbasis Axis 2 (λ₂ = ' + eigens.eigenvalues[1].value.toFixed(2) + ')', p2.x, p2.y, '#a855f7');
+        drawVectorLabel('Eigenbasis Axis 1 (λ₁ = ' + eigensDiag.eigenvalues[0].value.toFixed(2) + ')', p1.x, p1.y, '#eab308');
+        drawVectorLabel('Eigenbasis Axis 2 (λ₂ = ' + eigensDiag.eigenvalues[1].value.toFixed(2) + ')', p2.x, p2.y, '#a855f7');
+
+        // Draw A^k power trajectory projection
+        var probeK = ev1.scale(1.2).add(ev2.scale(0.8));
+        var pk0 = worldToScreen(probeK.x, probeK.y);
+        drawVectorLabel('Aᵏ = P·Dᵏ·P⁻¹ (Power trajectory decoupled along eigenaxes)', pk0.x, pk0.y - 30, '#38bdf8');
+      } else {
+        drawVectorLabel('A = P·D·P⁻¹ requires 2 linearly independent eigenvectors', o.x - 120, o.y - 60, '#f59e0b');
       }
+
     } else if (topic === 'svd') {
-      // Draw SVD Unit Circle -> Transformed Ellipse
-      state.shape = 'circle';
-      drawTransformedShape(state.matrix);
-      drawVectorLabel('SVD: Unit Circle → Transformed Hyper-Ellipse', o.x + 20, o.y - 120, '#38bdf8');
-      drawVectorLabel('Semi-axes lengths = Singular Values σ₁, σ₂', o.x + 20, o.y - 95, '#10b981');
+      // Draw unit circle (original input space)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, state.scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Transformed Hyper-Ellipse
+      var svd = Engine.computeSVD2x2(state.matrix);
+      var steps = 64;
+      ctx.save();
+      ctx.beginPath();
+      for (var s = 0; s <= steps; s++) {
+        var theta = (s / steps) * Math.PI * 2;
+        var tw = state.matrix.apply(new Vector2D(Math.cos(theta), Math.sin(theta)));
+        var sp = worldToScreen(tw.x, tw.y);
+        if (s === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(6, 182, 212, 0.12)';
+      ctx.fill();
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // Semi-axes vectors (Singular Values σ₁ and σ₂)
+      var ax1 = worldToScreen(svd.u1.x * svd.sigma1, svd.u1.y * svd.sigma1);
+      var ax2 = worldToScreen(svd.u2.x * svd.sigma2, svd.u2.y * svd.sigma2);
+      drawArrow(o.x, o.y, ax1.x, ax1.y, '#38bdf8', 2.5);
+      drawArrow(o.x, o.y, ax2.x, ax2.y, '#10b981', 2.5);
+      drawVectorLabel('σ₁·u₁ = ' + svd.sigma1.toFixed(2), ax1.x, ax1.y, '#38bdf8');
+      drawVectorLabel('σ₂·u₂ = ' + svd.sigma2.toFixed(2), ax2.x, ax2.y, '#10b981');
+      drawVectorLabel('SVD: A = U·Σ·Vᵀ maps Unit Circle to Hyper-Ellipse', o.x - 120, o.y + 120, '#eab308');
+
     } else if (topic === 'rank-nullity') {
-      drawRankNullityLines(state.matrix);
-      drawVectorLabel('Kernel ker(A): subspace compressed to 0', o.x - 140, o.y + 70, '#f43f5e');
-      drawVectorLabel('Image im(A): column space 1D output range', o.x + 40, o.y - 70, '#10b981');
-    } else if (topic === 'dot-product') {
-      drawVectorSandbox();
-    } else if (topic === 'gradient-descent' || topic === 'backpropagation') {
-      renderLossLab();
+      var singM = new Matrix2x2(1.2, 0.6, 1.2, 0.6); // rank 1
+      drawRankNullityLines(singM);
+      var pSample = worldToScreen(1.5, 2.0);
+      var tSample = singM.apply(new Vector2D(1.5, 2.0));
+      var pResult = worldToScreen(tSample.x, tSample.y);
+      drawArrow(o.x, o.y, pSample.x, pSample.y, 'rgba(255, 255, 255, 0.4)', 1.5);
+      drawArrow(o.x, o.y, pResult.x, pResult.y, '#10b981', 2.5);
+      drawVectorLabel('Any Input Vector v', pSample.x, pSample.y, '#94a3b8');
+      drawVectorLabel('Mapped to 1D Column Space im(A)', pResult.x, pResult.y, '#10b981');
+      drawVectorLabel('dim(ker A) [1] + dim(im A) [1] = n [2]', o.x - 100, o.y + 110, '#f59e0b');
+
+    } else if (topic === 'optimizers') {
+      // Draw 2D Loss Landscape Contours (Chalkboard view)
+      ctx.save();
+      for (var r = 0.5; r <= 3.5; r += 0.6) {
+        ctx.strokeStyle = 'rgba(99, 102, 241, ' + (0.15 + r * 0.05) + ')';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        // Elliptical contour L = w1^2 + 2*w2^2
+        var ellSteps = 48;
+        for (var si = 0; si <= ellSteps; si++) {
+          var ang = (si / ellSteps) * Math.PI * 2;
+          var cw = worldToScreen(r * Math.cos(ang), (r / 1.414) * Math.sin(ang));
+          if (si === 0) ctx.moveTo(cw.x, cw.y); else ctx.lineTo(cw.x, cw.y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Current optimization particle position
+      var px = 2.0, py = 1.4;
+      var pPos = worldToScreen(px, py);
+      ctx.beginPath();
+      ctx.arc(pPos.x, pPos.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fill();
+
+      // Negative Gradient -∇L = [-2w1, -4w2]
+      var gradStep = worldToScreen(px - 0.8 * 2.0 * 0.35, py - 0.8 * 2.8 * 0.35);
+      drawArrow(pPos.x, pPos.y, gradStep.x, gradStep.y, '#ef4444', 2.5);
+      drawVectorLabel('Steepest Descent -∇L', gradStep.x, gradStep.y, '#ef4444');
+
+      // Momentum Inertia Arrow
+      var momStep = worldToScreen(px - 1.1, py - 0.4);
+      drawArrow(pPos.x, pPos.y, momStep.x, momStep.y, '#f59e0b', 2);
+      drawVectorLabel('Momentum Step (with velocity v)', momStep.x, momStep.y, '#f59e0b');
+
+      drawVectorLabel('Minimizing Loss L(w): w_{t+1} = w_t - α·∇L', o.x - 90, o.y + 110, '#10b981');
+
+    } else if (topic === 'backprop') {
+      // Draw Mini DAG on blackboard
+      var n1 = worldToScreen(-2.2, 0.8);
+      var n2 = worldToScreen(-2.2, -0.8);
+      var n3 = worldToScreen(0.0, 0.0);
+      var n4 = worldToScreen(2.2, 0.0);
+
+      // Connectors
+      drawArrow(n1.x, n1.y, n3.x, n3.y, 'rgba(56, 189, 248, 0.5)', 2);
+      drawArrow(n2.x, n2.y, n3.x, n3.y, 'rgba(56, 189, 248, 0.5)', 2);
+      drawArrow(n3.x, n3.y, n4.x, n4.y, 'rgba(56, 189, 248, 0.5)', 2);
+
+      // Reverse gradient dashed arrows
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      drawArrow(n4.x, n4.y - 18, n3.x, n3.y - 18, '#f59e0b', 2);
+      drawArrow(n3.x, n3.y - 18, n1.x, n1.y - 18, '#f59e0b', 2);
+      ctx.restore();
+
+      drawVectorLabel('Forward Pass: Activations (Cyan →)', o.x - 80, o.y - 95, '#38bdf8');
+      drawVectorLabel('Backward Pass: Chain Rule Gradients (Amber ←)', o.x - 110, o.y - 70, '#f59e0b');
+      drawVectorLabel('∂L/∂w = (∂L/∂y) · (∂y/∂w)', o.x - 60, o.y + 90, '#10b981');
     }
   }
 
@@ -2593,114 +2717,197 @@
   var LECTURE_NOTES = {
     'matrix-transform': {
       title: '1. Matrices as Space Transformations',
+      formula: 'T(v) = A · v = [a·x + b·y,  c·x + d·y]ᵀ',
+      tabTarget: 'transform',
+      presetMatrix: new Matrix2x2(1.5, 0.5, 0.5, 1.2),
+      vivaQ: 'If a 2×2 matrix maps î into [2, 0]ᵀ and ĵ into [0, 3]ᵀ, what is the matrix?',
+      vivaA: 'The matrix is [2, 0; 0, 3] (a non-uniform scaling matrix). The columns of ANY matrix represent the destination coordinates of the standard basis vectors î and ĵ.',
       html: `
         <h4>Core Intuition</h4>
-        <p>A matrix is not just a spreadsheet of numbers—it is a <strong>spatial function</strong> that takes any vector in $\\mathbb{R}^2$ and maps it to a new location while preserving two rules:</p>
+        <p>A matrix is not just a table of numbers—it is a <strong>spatial coordinate transformer</strong> that maps any vector in ℝ² to a new location while preserving two fundamental linear rules:</p>
         <ul>
-          <li>The origin $(0, 0)$ remains fixed.</li>
+          <li>The origin (0, 0) remains permanently anchored at the center.</li>
           <li>All grid lines remain straight, parallel, and evenly spaced.</li>
         </ul>
-        <div class="theory-highlight">The columns of A tell you where the standard basis vectors land:<br>Col 1 = î destination [a, c]ᵀ<br>Col 2 = ĵ destination [b, d]ᵀ</div>
-        <h4>Real-world AI Application</h4>
-        <p>In neural networks, fully connected layers compute $y = Wx + b$. The weight matrix $W$ rotates, shears, and stretches the feature space to make data linearly separable!</p>
-        <div class="viva-tip">🎓 Viva Question: "If a matrix turns basis vector î into [2, 0] and ĵ into [0, 3], what is the matrix?"<br>Answer: [2, 0; 0, 3] (a non-uniform scaling matrix).</div>
+        <div class="theory-highlight">The columns of matrix A tell you where the standard basis vectors land:<br>• Column 1 = î landing position [a, c]ᵀ<br>• Column 2 = ĵ landing position [b, d]ᵀ</div>
+        <h4>Real-World AI & Graphics Application</h4>
+        <p>In neural networks, fully connected linear layers compute <em>y = W · x + b</em>. The weight matrix <em>W</em> rotates, shears, and stretches feature embeddings to make raw data linearly separable.</p>
       `
     },
     'determinant': {
       title: '2. The Determinant & Volume Scaling',
+      formula: 'det(A) = ad - bc = Area(A · Shape) / Area(Shape)',
+      tabTarget: 'transform',
+      presetMatrix: new Matrix2x2(1.2, 0.4, 0.4, 1.0),
+      vivaQ: 'Why does det(A) = 0 imply non-invertibility?',
+      vivaA: 'Because the transformation squashes 2D space into a 1D line or point. Multiple distinct input points are mapped to the same output, meaning information is irreversibly destroyed and no inverse function can reconstruct the original preimage.',
       html: `
         <h4>Geometric Meaning</h4>
-        <p>The determinant $\\det(A) = ad - bc$ measures the factor by which areas (in 2D) or volumes (in 3D) are multiplied when space is transformed.</p>
+        <p>The determinant <strong>det(A) = ad - bc</strong> measures the exact scaling factor by which areas (in 2D) or volumes (in 3D) expand or contract under the transformation.</p>
         <ul>
-          <li><strong>det(A) > 0:</strong> Space scales by |det| and orientation (chirality) is preserved.</li>
-          <li><strong>det(A) < 0:</strong> Space is flipped or mirrored (like turning a sheet of paper upside down).</li>
-          <li><strong>det(A) = 0:</strong> Space is squished into a lower dimension (2D plane collapses into a 1D line or point). Information is lost forever—the matrix has <strong>no inverse</strong>!</li>
+          <li><strong>det(A) > 0:</strong> Space scales by |det| and spatial orientation (chirality) is preserved.</li>
+          <li><strong>det(A) < 0:</strong> Space is flipped or mirrored (like viewing the plane through a mirror).</li>
+          <li><strong>det(A) = 0:</strong> Space is squashed into a lower dimension (2D plane collapses to a 1D line or point). Information is lost forever—the matrix is <strong>singular</strong>!</li>
         </ul>
-        <div class="theory-highlight">Area(A·Shape) = |det(A)| · Area(Original Shape)</div>
-        <div class="viva-tip">🎓 Viva Question: "Why does det(A) = 0 imply non-invertibility?"<br>Answer: Because multiple distinct points are mapped to the exact same output, making it impossible to uniquely reverse the operation.</div>
+        <div class="theory-highlight">Transformed Area = |det(A)| · Original Unit Square Area</div>
       `
     },
     'eigenvalues': {
       title: '3. Eigenvalues, Eigenvectors & Resonance',
+      formula: 'A · v = λ · v   ⟺   det(A - λI) = 0',
+      tabTarget: 'eigen',
+      presetMatrix: new Matrix2x2(2.0, 1.0, 0.0, 1.5),
+      vivaQ: 'How do you find eigenvalues mathematically?',
+      vivaA: 'By setting det(A - λI) = 0 (the characteristic polynomial) and finding the roots λ. For a 2×2 matrix, this is λ² - tr(A)λ + det(A) = 0.',
       html: `
         <h4>What are Eigenvectors?</h4>
-        <p>Most vectors get knocked off their span line when transformed by $A$. An <strong>eigenvector</strong> is a special, rare vector that does NOT rotate—it only scales along its original line!</p>
-        <div class="theory-highlight">Ax = λx  (where λ is the eigenvalue scalar)</div>
+        <p>Most vectors get knocked off their span line when transformed by <em>A</em>. An <strong>eigenvector</strong> is a special invariant vector that does NOT rotate—it only scales along its original line!</p>
+        <div class="theory-highlight">A · v = λ · v   (where λ is the scalar eigenvalue factor)</div>
         <ul>
-          <li><strong>λ > 1:</strong> Vector stretches outwards.</li>
-          <li><strong>0 < λ < 1:</strong> Vector contracts inwards.</li>
-          <li><strong>λ < 0:</strong> Vector flips to the opposite direction along the same span.</li>
-          <li><strong>Complex λ:</strong> Pure rotation or spiral—no real vectors stay on their line!</li>
+          <li><strong>λ > 1:</strong> Vector stretches outwards along span line.</li>
+          <li><strong>0 < λ < 1:</strong> Vector contracts inwards towards origin.</li>
+          <li><strong>λ < 0:</strong> Vector flips to opposite direction along invariant axis.</li>
+          <li><strong>Complex λ:</strong> Space undergoes pure rotation or spiral—no real vectors remain invariant!</li>
         </ul>
-        <div class="viva-tip">🎓 Viva Question: "How do you find eigenvalues mathematically?"<br>Answer: By setting $\\det(A - \\lambda I) = 0$ (the characteristic equation) and solving for roots $\\lambda$.</div>
       `
     },
     'diagonalization': {
       title: '4. Diagonalization & Matrix Powers (A = PDP⁻¹)',
+      formula: 'A = P · D · P⁻¹   ⟹   Aᵏ = P · diag(λ₁ᵏ, λ₂ᵏ) · P⁻¹',
+      tabTarget: 'mult',
+      presetMatrix: new Matrix2x2(1.5, 0.5, 0.0, 0.8),
+      vivaQ: 'When is an n×n matrix diagonalizable?',
+      vivaA: 'When it possesses n linearly independent eigenvectors. This is guaranteed if all n eigenvalues are distinct real numbers.',
       html: `
         <h4>Why Diagonalize?</h4>
-        <p>If a matrix has $n$ linearly independent eigenvectors, we can change our coordinate system to the <strong>eigenbasis</strong>. In this coordinate system, matrix operations become completely uncoupled!</p>
-        <div class="theory-highlight">A = P · D · P⁻¹  (where D is diagonal with eigenvalues)</div>
-        <p>Computing $A^{100}$ directly requires 100 expensive matrix multiplications. With diagonalization, it takes 1 step:</p>
-        <div class="theory-highlight">Aᵏ = P · Dᵏ · P⁻¹ = P · diag(λ₁ᵏ, λ₂ᵏ) · P⁻¹</div>
-        <div class="viva-tip">🎓 Viva Question: "When is an n×n matrix diagonalizable?"<br>Answer: When it has $n$ linearly independent eigenvectors (always true if it has $n$ distinct eigenvalues).</div>
+        <p>If a matrix has <em>n</em> linearly independent eigenvectors, we can switch our coordinate system to the <strong>eigenbasis</strong>. In this frame of reference, matrix operations become completely uncoupled!</p>
+        <div class="theory-highlight">A = P · D · P⁻¹   (where D is a diagonal matrix of eigenvalues)</div>
+        <p>Computing <em>A¹⁰⁰</em> directly requires 100 expensive matrix multiplications. With diagonalization, powers are computed instantly:</p>
+        <div class="theory-highlight">Aᵏ = P · diag(λ₁ᵏ, λ₂ᵏ) · P⁻¹</div>
       `
     },
     'svd': {
       title: '5. Singular Value Decomposition (SVD)',
+      formula: 'A = U · Σ · Vᵀ   (σᵢ = √λᵢ(AᵀA))',
+      tabTarget: 'transform',
+      presetMatrix: new Matrix2x2(1.4, 0.6, 0.2, 0.9),
+      vivaQ: 'What are the geometric roles of U, Σ, and Vᵀ in SVD?',
+      vivaA: 'Vᵀ rotates the input space to align with principal directions, Σ stretches space along orthogonal axes by singular values σ₁ and σ₂, and U applies a final rotation in the output space.',
       html: `
         <h4>The Master Matrix Factorization</h4>
-        <p>Eigenvalues only work for square matrices ($n \\times n$). <strong>SVD</strong> works for *any* matrix of any shape ($m \\times n$), making it the heart of modern Data Science and ML!</p>
-        <div class="theory-highlight">A = U · Σ · Vᵀ<br>Rotate (Vᵀ) → Stretch (Σ) → Rotate (U)</div>
-        <p>Geometrically, SVD proves that <strong>any linear transformation maps a unit sphere into a hyper-ellipse</strong>. The lengths of the semi-axes of this ellipse are the singular values $\\sigma_1, \\sigma_2, \\dots$!</p>
-        <div class="viva-tip">🎓 Viva Question: "What are singular values of A?"<br>Answer: The square roots of the eigenvalues of the symmetric matrix $A^T A$.</div>
+        <p>Eigenvalues only work for square matrices (n × n). <strong>SVD</strong> works for *any* matrix of any rectangular dimensions (m × n), making it the foundation of PCA and modern LLM compression!</p>
+        <div class="theory-highlight">A = U · Σ · Vᵀ<br>Rotate (Vᵀ) ⟶ Stretch (Σ by σ₁, σ₂) ⟶ Rotate (U)</div>
+        <p>Geometrically, SVD proves that <strong>any linear transformation maps a unit circle into a hyper-ellipse</strong>. The semi-axis lengths of this ellipse are the singular values σ₁ and σ₂.</p>
       `
     },
     'rank-nullity': {
       title: '6. Rank-Nullity Theorem & Dimensional Collapse',
+      formula: 'dim(ker A) + dim(im A) = n   (Nullity + Rank = n)',
+      tabTarget: 'transform',
+      presetMatrix: new Matrix2x2(1.0, 1.0, 1.0, 1.0),
+      vivaQ: 'State the Rank-Nullity Theorem and its physical interpretation.',
+      vivaA: 'dim(ker A) + dim(im A) = n. Every dimension of the input space is either preserved in the output column space (image) or crushed to the origin in the nullspace (kernel).',
       html: `
-        <h4>The Fundamental Theorem</h4>
-        <p>When a matrix transforms space, every input vector either lands somewhere in the <strong>Column Space (Image)</strong> or gets squashed to the zero vector $(0, 0)$ in the <strong>Nullspace (Kernel)</strong>.</p>
-        <div class="theory-highlight">dim(ker A) + dim(im A) = n  (Rank-Nullity Theorem)</div>
-        <p>For a $2 \\times 2$ matrix with $\\det = 0$:</p>
+        <h4>The Fundamental Conservation Law</h4>
+        <p>When a matrix transforms space, every input vector either lands somewhere in the <strong>Column Space (Image)</strong> or gets squashed to the zero vector in the <strong>Nullspace (Kernel)</strong>.</p>
+        <div class="theory-highlight">dim(ker A) + dim(im A) = n   (Rank-Nullity Theorem)</div>
+        <p>For a 2×2 matrix with det = 0:</p>
         <ul>
-          <li>Rank = 1 (Range is a 1D line)</li>
-          <li>Nullity = 1 (Kernel is a 1D line that gets compressed to origin)</li>
-          <li>$1 + 1 = 2$ dimensions accounted for!</li>
+          <li>Rank = 1 (Column space is a 1D line)</li>
+          <li>Nullity = 1 (Kernel is an orthogonal 1D line compressed to 0)</li>
+          <li>1 + 1 = 2 total dimensions accounted for!</li>
         </ul>
       `
     },
     'optimizers': {
       title: '7. Gradient Descent & Loss Landscapes',
+      formula: 'w_{t+1} = w_t - α · ∇L(w_t)   (Adam: m̂ / (√v̂ + ε))',
+      tabTarget: 'loss',
+      presetMatrix: null,
+      vivaQ: 'Why does standard SGD struggle in narrow ravines compared to Momentum and Adam?',
+      vivaA: 'In narrow ravines with high condition numbers, the gradient oscillates wildly across steep ravine walls rather than moving down the gentle floor. Momentum adds inertia to cancel transversal oscillations, while Adam adapts individual parameter learning rates.',
       html: `
         <h4>How AI Learns</h4>
-        <p>Training a neural network means finding weights $(w_1, w_2)$ that minimize a Loss function $L(w)$. The gradient $\\nabla L$ points in the direction of steepest ascent, so we take steps in the negative gradient direction:</p>
+        <p>Training machine learning models means finding weights <em>(w₁, w₂)</em> that minimize a scalar loss function <em>L(w)</em>. The negative gradient <strong>-∇L</strong> points in the direction of steepest descent:</p>
         <div class="theory-highlight">w_{t+1} = w_t - α · ∇L(w_t)</div>
         <ul>
-          <li><strong>SGD:</strong> Takes raw gradient steps; oscillates wildly in narrow ravines.</li>
-          <li><strong>Momentum:</strong> Adds inertia (velocity $v$) like a heavy bowling ball to blow past local saddle points.</li>
-          <li><strong>RMSprop:</strong> Normalizes steps by running variance of gradients to equalize slow and fast directions.</li>
-          <li><strong>Adam:</strong> Combines Momentum (1st moment) + RMSprop (2nd moment) with bias correction—the gold standard of Deep Learning!</li>
+          <li><strong>SGD:</strong> Raw gradient steps; oscillates aggressively in ill-conditioned ravines.</li>
+          <li><strong>Momentum:</strong> Adds velocity momentum <em>v</em> like a rolling bowling ball to bypass saddle points.</li>
+          <li><strong>RMSprop:</strong> Normalizes gradient steps by running variance to scale unequal coordinate axes.</li>
+          <li><strong>Adam:</strong> Combines Momentum + RMSprop with bias correction—the industry standard for training LLMs!</li>
         </ul>
       `
     },
     'backprop': {
-      title: '8. Autograd & The Chain Rule',
+      title: '8. Automatic Differentiation & The Chain Rule',
+      formula: '∂L / ∂w = (∂L / ∂y) · (∂y / ∂w)',
+      tabTarget: 'autograd',
+      presetMatrix: null,
+      vivaQ: 'Why is reverse-mode autodiff preferred over forward-mode for deep neural networks?',
+      vivaA: 'Neural networks have millions of input weights but only a single scalar output (Loss L). Reverse-mode autodiff computes gradients for ALL weights in a single backward pass O(1), whereas forward-mode would require millions of passes O(N).',
       html: `
-        <h4>Reverse-Mode Automatic Differentiation</h4>
-        <p>To train a network with billions of parameters, calculating numerical derivatives $\\frac{f(x+h) - f(x)}{h}$ would require billions of forward passes. Backpropagation solves this in <strong>one single pass</strong> using the chain rule on a Directed Acyclic Graph (DAG):</p>
+        <h4>Reverse-Mode Autodiff</h4>
+        <p>To train deep neural networks with billions of parameters, calculating numerical finite differences would require billions of forward passes. Backpropagation calculates exact gradients in <strong>one single pass</strong> via the chain rule on a Directed Acyclic Graph (DAG):</p>
         <div class="theory-highlight">∂L / ∂w = (∂L / ∂y) · (∂y / ∂w)</div>
-        <p>During the forward pass, values are evaluated from left to right. During the backward pass, gradients are accumulated from right to left!</p>
+        <p>During the forward pass, node activations flow from inputs to output. During the backward pass, adjoint gradients propagate in reverse from output to inputs!</p>
       `
     }
   };
+  LECTURE_NOTES['eigen'] = LECTURE_NOTES['eigenvalues'];
 
   function updateNotesTopic(key) {
     var item = LECTURE_NOTES[key] || LECTURE_NOTES['matrix-transform'];
+    state.currentNotesTopic = key;
+
+    // Track explored topics
+    if (!state.exploredNotesTopics) state.exploredNotesTopics = [];
+    if (state.exploredNotesTopics.indexOf(key) === -1) {
+      state.exploredNotesTopics.push(key);
+    }
+    var badge = $('notes-progress-badge');
+    if (badge) {
+      badge.textContent = 'Explored: ' + state.exploredNotesTopics.length + '/8';
+    }
+
+    // Synchronize UI active button
+    document.querySelectorAll('.btn-notes-topic').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-topic') === key);
+    });
+    var sel = $('notes-topic-select');
+    if (sel && sel.value !== key) sel.value = key;
+
+    // Render Note Content Card
     var container = $('notes-content-container');
     if (container) {
-      container.innerHTML = '<h3>' + item.title + '</h3>' + item.html;
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+          <h3>${item.title}</h3>
+        </div>
+        <div class="theory-highlight" style="font-size: 0.82rem; margin: 0.2rem 0 0.5rem 0;">
+          <strong>Identity:</strong> <code>${item.formula}</code>
+        </div>
+        ${item.html}
+        <div class="viva-tip" style="margin-top: 0.6rem;">
+          <button class="viva-accordion-toggle" id="btn-toggle-viva">
+            <span>🎓 University Viva Question</span> <span style="font-size: 0.7rem; color: #fde68a;">[Click to Reveal]</span>
+          </button>
+          <div style="font-weight: 600; margin-top: 0.35rem; color: #fde68a;">${item.vivaQ}</div>
+          <div class="viva-answer hidden" id="viva-answer-content">${item.vivaA}</div>
+        </div>
+      `;
+
+      // Wire viva reveal toggle
+      var btnToggleViva = $('btn-toggle-viva');
+      var ansContent = $('viva-answer-content');
+      if (btnToggleViva && ansContent) {
+        btnToggleViva.addEventListener('click', function () {
+          var isHidden = ansContent.classList.toggle('hidden');
+          btnToggleViva.querySelector('span:last-child').textContent = isHidden ? '[Click to Reveal]' : '[Hide Answer]';
+        });
+      }
     }
+
+    render();
   }
 
   // ── Viva Prep Quiz Engine ─────────────────────────────────────────────────
@@ -3441,11 +3648,67 @@
       });
     }
 
-    // Notes Topic Selector
+    // Notes Topic Selector & Pill Buttons
+    document.querySelectorAll('.btn-notes-topic[data-topic]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var topicKey = this.getAttribute('data-topic');
+        updateNotesTopic(topicKey);
+      });
+    });
+
     var notesSelect = $('notes-topic-select');
     if (notesSelect) {
       notesSelect.addEventListener('change', function () {
         updateNotesTopic(this.value);
+      });
+    }
+
+    // Instant Search Filter for Theory Topics
+    var notesSearchInput = $('notes-search-input');
+    if (notesSearchInput) {
+      notesSearchInput.addEventListener('input', function () {
+        var q = this.value.toLowerCase().trim();
+        document.querySelectorAll('.btn-notes-topic').forEach(function (btn) {
+          var tKey = btn.getAttribute('data-topic') || '';
+          var text = btn.textContent.toLowerCase();
+          var matched = tKey.indexOf(q) !== -1 || text.indexOf(q) !== -1;
+          btn.style.display = matched ? 'block' : 'none';
+        });
+      });
+    }
+
+    // One-Click Formula Copy Button
+    var btnCopyFormula = $('btn-copy-formula');
+    if (btnCopyFormula) {
+      btnCopyFormula.addEventListener('click', function () {
+        var curr = LECTURE_NOTES[state.currentNotesTopic] || LECTURE_NOTES['matrix-transform'];
+        var text = curr.formula;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text);
+        }
+        var orig = btnCopyFormula.textContent;
+        btnCopyFormula.textContent = 'Copied! ✓';
+        btnCopyFormula.style.color = '#10b981';
+        btnCopyFormula.style.borderColor = '#10b981';
+        setTimeout(function () {
+          btnCopyFormula.textContent = orig;
+          btnCopyFormula.style.color = '';
+          btnCopyFormula.style.borderColor = '';
+        }, 1800);
+      });
+    }
+
+    // "Experiment in Tab" Action
+    var btnNotesExperiment = $('btn-notes-experiment');
+    if (btnNotesExperiment) {
+      btnNotesExperiment.addEventListener('click', function () {
+        var curr = LECTURE_NOTES[state.currentNotesTopic] || LECTURE_NOTES['matrix-transform'];
+        if (curr.presetMatrix) {
+          state.matrix = curr.presetMatrix.clone();
+          syncMatrixInputs();
+          updateTelemetry();
+        }
+        setMode(curr.tabTarget);
       });
     }
 

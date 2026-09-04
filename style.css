@@ -1099,6 +1099,54 @@ html, body {
   color: #fde68a;
 }
 
+.btn-notes-topic {
+  background: rgba(10, 16, 30, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.5rem;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-notes-topic:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-main);
+  border-color: var(--border-active);
+}
+
+.btn-notes-topic.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.viva-accordion-toggle {
+  background: none;
+  border: none;
+  color: #fde68a;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  font-size: 0.75rem;
+}
+
+.viva-answer {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed rgba(245, 158, 11, 0.3);
+  color: #cbd5e1;
+}
+
 /* ── Viva Exam Quiz ──────────────────────────────────────────────────────── */
 
 .quiz-container {

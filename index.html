@@ -980,9 +980,27 @@
         <div id="panel-notes" class="mode-panel hidden">
           <section class="sidebar-section">
             <div class="section-header">
-              <h2 class="section-title"><span>📚</span> FY Engineering Theory Notes</h2>
+              <h2 class="section-title"><span>📚</span> FY Engineering Theory Vault</h2>
+              <span id="notes-progress-badge" class="telemetry-badge badge-det-pos">Explored: 1/8</span>
             </div>
-            <select id="notes-topic-select" class="matrix-input" style="width: 100%; height: 38px; text-align: left; padding: 0 0.6rem;">
+
+            <!-- Instant Search Filter -->
+            <input type="text" id="notes-search-input" class="matrix-input" style="width: 100%; height: 32px; padding: 0 0.6rem; margin-bottom: 0.5rem; text-align: left; font-size: 0.78rem;" placeholder="🔍 Search topics (e.g. eigen, svd, nullity)...">
+
+            <!-- Responsive Topic Button Grid -->
+            <div id="notes-topic-grid" class="shape-selector" style="grid-template-columns: 1fr 1fr; gap: 0.3rem;">
+              <button class="btn-notes-topic active" data-topic="matrix-transform">1. 🌀 Transform</button>
+              <button class="btn-notes-topic" data-topic="determinant">2. 📦 Determinant</button>
+              <button class="btn-notes-topic" data-topic="eigen">3. ⚡ Eigenvalues</button>
+              <button class="btn-notes-topic" data-topic="diagonalization">4. 🔀 Diagonalize</button>
+              <button class="btn-notes-topic" data-topic="svd">5. 🎯 SVD Factor</button>
+              <button class="btn-notes-topic" data-topic="rank-nullity">6. 📉 Rank-Nullity</button>
+              <button class="btn-notes-topic" data-topic="optimizers">7. 🏎️ Optimizers</button>
+              <button class="btn-notes-topic" data-topic="backprop">8. 🕸️ Autograd</button>
+            </div>
+
+            <!-- Legacy hidden select for backward compatibility -->
+            <select id="notes-topic-select" class="hidden">
               <option value="matrix-transform">1. Matrices as Space Transformers</option>
               <option value="determinant">2. The Determinant & Volume Scaling</option>
               <option value="eigenvalues">3. Eigenvalues, Eigenvectors & Resonance</option>
@@ -992,6 +1010,14 @@
               <option value="optimizers">7. Optimizers (SGD, Momentum, Adam)</option>
               <option value="backprop">8. Automatic Differentiation & Autograd</option>
             </select>
+          </section>
+
+          <!-- Quick Action Buttons -->
+          <section class="sidebar-section">
+            <div class="preset-grid" style="grid-template-columns: 1fr 1fr;">
+              <button id="btn-copy-formula" class="btn-preset" title="Copy primary mathematical identity">📋 Copy Formula</button>
+              <button id="btn-notes-experiment" class="btn-preset" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #6ee7b7;" title="Jump to interactive sandbox for this concept">▶ Experiment</button>
+            </div>
           </section>
 
           <section class="sidebar-section">
